@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Food Vendor Inspection</title>
+<style>
+:root{--bg:#fff;--bg2:#f7f7f5;--text:#1a1a1a;--text2:#555;--border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--blue:#1a5fd4;--blue-bg:#e8f0fd;--blue-text:#1a4ba8;--green:#166534;--green-bg:#dcfce7;--green-text:#14532d;--amber-bg:#fef3c7;--amber-text:#78350f;--red-bg:#fee2e2;--red-text:#991b1b;--r:10px;--rs:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg2);color:var(--text);min-height:100vh}
+.page{max-width:860px;margin:0 auto;padding:1.5rem 1rem 4rem}
+.hdr{text-align:center;margin-bottom:2rem;padding:1.5rem;background:var(--bg);border-radius:var(--r);border:0.5px solid var(--border)}
+.hdr h1{font-size:22px;font-weight:700}
+.hdr p{font-size:13px;color:var(--text2);margin-top:4px}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:1.25rem 1.5rem;margin-bottom:1.25rem}
+.card-t{font-size:14px;font-weight:600;margin-bottom:1rem;padding-bottom:8px;border-bottom:0.5px solid var(--border)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.field{margin-bottom:.9rem}.field:last-child{margin-bottom:0}
+.lbl{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+input[type=text],input[type=date],textarea{width:100%;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);font-size:14px;color:var(--text);background:var(--bg);font-family:inherit}
+input:focus,textarea:focus{outline:none;border-color:var(--blue)}
+textarea{resize:vertical;min-height:64px;line-height:1.5}
+.btn{padding:9px 18px;border:0.5px solid var(--border2);border-radius:var(--rs);font-size:14px;cursor:pointer;background:transparent;color:var(--text);font-family:inherit}
+.btn:hover{background:var(--bg2)}
+.btn.pri{background:var(--blue);color:#fff;border-color:transparent;font-weight:500}
+.btn.pri:hover{background:#1550b8}
+.btn.full{width:100%;padding:12px;font-size:15px;font-weight:500}
+.btn.sm{padding:6px 12px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.vblock{border:0.5px solid var(--border);border-radius:var(--rs);padding:1rem;margin-bottom:1rem;background:var(--bg2)}
+.vblock:last-child{margin-bottom:0}
+.score-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px}
+.score-grid input{text-align:center;padding:6px 4px}
+.total-tag{font-size:13px;font-weight:600;color:var(--blue);margin-top:8px;display:block}
+.att-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.att-opt{display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer}
+.att-opt input{width:auto}
+.dash-btn{width:100%;padding:9px;border:1px dashed var(--border2);border-radius:var(--rs);background:none;font-size:13px;color:var(--text2);cursor:pointer;font-family:inherit;margin-top:10px}
+.dash-btn:hover{background:var(--bg2)}
+.sbar{background:var(--blue-bg);border-radius:var(--rs);padding:12px 16px;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.yn-row{display:flex;align-items:center;gap:12px;margin-top:6px;flex-wrap:wrap}
+.yn-opt{display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer}
+.yn-opt input{width:auto}
+.msg{padding:10px 14px;border-radius:var(--rs);font-size:13px;margin-top:10px;display:none}
+.msg.green{background:var(--green-bg);color:var(--green-text);display:block}
+.msg.red{background:var(--red-bg);color:var(--red-text);display:block}
+.msg.amber{background:var(--amber-bg);color:var(--amber-text);display:block}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* No-session state */
+.no-session{text-align:center;padding:3.5rem 1.5rem}
+.no-session-icon{font-size:48px;margin-bottom:1rem;opacity:.35}
+.no-session h2{font-size:18px;font-weight:700;margin-bottom:8px;color:var(--text)}
+.no-session p{font-size:14px;color:var(--text2);line-height:1.6;max-width:340px;margin:0 auto}
+
+/* Loading state */
+.loading-screen{text-align:center;padding:4rem 1rem;color:var(--text2);font-size:14px}
+.loading-spin{display:inline-block;width:22px;height:22px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:sp .6s linear infinite;margin-bottom:1rem}
+
+@media(max-width:600px){.row2,.score-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="hdr">
+    <h1>Food vendor inspection</h1>
+    <p id="hdr-sub">Checking for today's session...</p>
+  </div>
+
+  <!-- Loading -->
+  <div id="screen-loading">
+    <div class="loading-screen">
+      <div class="loading-spin"></div>
+      <div>Checking for today's inspection session...</div>
+    </div>
+  </div>
+
+  <!-- No session -->
+  <div id="screen-no-session" style="display:none">
+    <div class="card">
+      <div class="no-session">
+        <div class="no-session-icon">&#128203;</div>
+        <h2 id="no-session-title">No inspection session open today</h2>
+        <p id="no-session-msg">There is no active inspection session for today. Please check back later or contact your administrator.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Taster form -->
+  <div id="screen-form" style="display:none">
+    <div class="sbar">
+      <div>
+        <strong style="font-size:14px;color:var(--blue-text)" id="session-label">Session: —</strong>
+        <div style="font-size:12px;color:var(--blue-text);margin-top:2px" id="session-count">— submissions so far</div>
+      </div>
+      <button class="btn sm" onclick="refreshCount()">Refresh count</button>
+    </div>
+
+    <div class="card">
+      <div class="card-t">Your details</div>
+      <div class="row2">
+        <div class="field"><label class="lbl">Your name</label><input type="text" id="tname" placeholder="Full name"></div>
+        <div class="field"><label class="lbl">Role</label><input type="text" id="trole" placeholder="e.g. Taster, Inspector"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-t">Vendor assessments</div>
+      <div id="vlist"></div>
+      <button class="dash-btn" onclick="addVendor()">+ Add vendor</button>
+    </div>
+
+    <div class="card">
+      <div class="card-t">Feedback &amp; observations</div>
+      <div id="flist"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-t">Actions &amp; follow-ups</div>
+      <div id="alist"></div>
+      <button class="dash-btn" onclick="addAction()">+ Add action item</button>
+    </div>
+
+    <button class="btn pri full" id="submit-btn" onclick="submitEntry()">Submit my assessment</button>
+    <div id="submit-msg" class="msg"></div>
+  </div>
+
+  <!-- Success screen -->
+  <div id="screen-success" style="display:none">
+    <div class="card">
+      <div class="no-session" style="padding:3rem 1.5rem">
+        <div class="no-session-icon" style="opacity:1">&#9989;</div>
+        <h2 style="color:var(--green)">Assessment submitted!</h2>
+        <p style="margin-top:8px" id="success-msg">Your assessment has been saved. Thank you.</p>
+        <button class="btn pri" style="margin-top:1.5rem" onclick="resetForNextTaster()">Submit another assessment</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+const DB = "https://food-sampling-hod-iforum-default-rtdb.firebaseio.com";
+let sessionKey = null;
+let vc = 0, ac = 0;
+
+async function fbGet(p){ const r=await fetch(DB+p+".json"); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
+async function fbPatch(p,d){ const r=await fetch(DB+p+".json",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
+
+function show(id){
+  ["screen-loading","screen-no-session","screen-form","screen-success"].forEach(s=>{
+    document.getElementById(s).style.display = s===id ? "block" : "none";
+  });
+}
+
+function msg(id,txt,cls){
+  const e=document.getElementById(id);
+  if(!e)return;
+  e.className="msg"+(txt?" "+cls:"");
+  e.textContent=txt;
+  e.style.display=txt?"block":"none";
+}
+
+// ── On load: check for today's session ──────────────
+async function checkTodaySession(){
+  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const key = "sessions/" + today.replace(/-/g,"");
+
+  try{
+    const session = await fbGet("/"+key);
+
+    if(!session){
+      // No session exists for today
+      document.getElementById("hdr-sub").textContent = "No active session today";
+      document.getElementById("no-session-title").textContent = "No inspection session open today";
+      document.getElementById("no-session-msg").textContent = "There is no active inspection session for " + formatDate(today) + ". Please contact your administrator.";
+      show("screen-no-session");
+      return;
+    }
+
+    // Session found — load the form
+    sessionKey = key;
+    document.getElementById("hdr-sub").textContent = (session.name || today) + " — " + formatDate(today);
+    document.getElementById("session-label").textContent = "Session: " + (session.name || today);
+    await refreshCount();
+    if(vc === 0){ addVendor(); addVendor(); addVendor(); }
+    if(ac === 0) addAction();
+    show("screen-form");
+
+  }catch(e){
+    document.getElementById("hdr-sub").textContent = "Connection error";
+    document.getElementById("no-session-title").textContent = "Could not connect";
+    document.getElementById("no-session-msg").textContent = "Unable to reach the server. Please check your internet connection and try refreshing the page.";
+    show("screen-no-session");
+  }
+}
+
+function formatDate(iso){
+  const d = new Date(iso + "T12:00:00");
+  return d.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+}
+
+async function refreshCount(){
+  if(!sessionKey) return;
+  try{
+    const s = await fbGet("/"+sessionKey);
+    const c = s && s.submissions ? Object.keys(s.submissions).length : 0;
+    document.getElementById("session-count").textContent = c + " submission"+(c!==1?"s":"")+" so far today";
+  }catch(e){}
+}
+
+// ── Vendor form builder ──────────────────────────────
+function addVendor(){
+  vc++; const i=vc;
+  const vl=document.getElementById("vlist"), fl=document.getElementById("flist");
+
+  const vd=document.createElement("div"); vd.className="vblock";
+  vd.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="width:26px;height:26px;border-radius:50%;background:var(--blue-bg);color:var(--blue-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">${i}</div>
+      <strong>Vendor ${i}</strong>
+    </div>
+    <div class="row2" style="margin-bottom:10px">
+      <div class="field" style="margin:0"><label class="lbl">Vendor name</label><input type="text" id="vn${i}" placeholder="Name" oninput="syncN(${i})"></div>
+      <div class="field" style="margin:0"><label class="lbl">Category</label><input type="text" id="vc${i}" placeholder="Food / Beverage / Other"></div>
+    </div>
+    <label class="lbl">Attendance</label>
+    <div class="att-row">
+      <label class="att-opt"><input type="radio" name="va${i}" value="Present"> Present</label>
+      <label class="att-opt"><input type="radio" name="va${i}" value="Absent (with notice)"> Absent (notice)</label>
+      <label class="att-opt"><input type="radio" name="va${i}" value="Absent (no notice)"> Absent (no notice)</label>
+    </div>
+    <label class="lbl" style="margin-top:10px">Scores — enter 1–5 or N/A per criterion</label>
+    <div class="score-grid">
+      <div><label class="lbl">Taste</label><input type="text" id="vs${i}0" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
+      <div><label class="lbl">Aroma</label><input type="text" id="vs${i}1" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
+      <div><label class="lbl">Appear.</label><input type="text" id="vs${i}2" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
+      <div><label class="lbl">Hygiene</label><input type="text" id="vs${i}3" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
+      <div><label class="lbl">Environ.</label><input type="text" id="vs${i}4" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
+      <div><label class="lbl">Storage</label><input type="text" id="vs${i}5" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
+      <div><label class="lbl">Safety</label><input type="text" id="vs${i}6" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
+    </div>
+    <span class="total-tag" id="vt${i}">Total: — / 40</span>`;
+  vl.appendChild(vd);
+
+  const fd=document.createElement("div"); fd.className="vblock";
+  fd.innerHTML=`
+    <div style="font-size:14px;font-weight:600;margin-bottom:10px">Vendor ${i} — <span id="fn${i}" style="color:var(--text2);font-weight:400">—</span></div>
+    <div class="row2" style="margin-bottom:10px">
+      <div class="field" style="margin:0"><label class="lbl">Sampled food / product</label><input type="text" id="fs${i}" placeholder="What was sampled?"></div>
+      <div class="field" style="margin:0"><label class="lbl">Customer feedback</label><input type="text" id="fc${i}" placeholder="Summary of feedback received"></div>
+    </div>
+    <div class="field" style="margin-bottom:10px"><label class="lbl">Inspector observations</label><textarea id="fo${i}" placeholder="Observations, issues noted..."></textarea></div>
+    <div style="display:flex;gap:2rem;flex-wrap:wrap">
+      <div><label class="lbl">Follow-up needed?</label><div class="yn-row"><label class="yn-opt"><input type="radio" name="fu${i}" value="Yes"> Yes</label><label class="yn-opt"><input type="radio" name="fu${i}" value="No"> No</label></div></div>
+      <div><label class="lbl">Prev. issue resolved?</label><div class="yn-row"><label class="yn-opt"><input type="radio" name="pi${i}" value="Yes"> Yes</label><label class="yn-opt"><input type="radio" name="pi${i}" value="No"> No</label><label class="yn-opt"><input type="radio" name="pi${i}" value="N/A"> N/A</label></div></div>
+    </div>`;
+  fl.appendChild(fd);
+}
+
+function syncN(i){ const n=document.getElementById("vn"+i)?.value||"—"; const e=document.getElementById("fn"+i); if(e)e.textContent=n }
+
+function validateScore(el, vendorIdx){
+  const raw = el.value.trim();
+  // Allow empty or N/A
+  if(raw === "" || raw.toUpperCase() === "N/A"){ el.style.borderColor=""; el.style.background=""; calcT(vendorIdx); return }
+  const v = parseFloat(raw);
+  if(isNaN(v) || v < 1 || v > 5 || !Number.isInteger(v)){
+    el.style.borderColor = "var(--red-text)";
+    el.style.background = "var(--red-bg)";
+    // If out of range number, cap it silently after a short pause
+    if(!isNaN(v) && Number.isInteger(v)){
+      if(v > 5){ el.value = "5"; el.style.borderColor=""; el.style.background=""; }
+      if(v < 1){ el.value = "1"; el.style.borderColor=""; el.style.background=""; }
+    }
+  } else {
+    el.style.borderColor = "var(--green)";
+    el.style.background = "var(--green-bg)";
+  }
+  calcT(vendorIdx);
+}
+
+function calcT(i){
+  let s=0, c=0, hasInvalid=false;
+  for(let j=0;j<7;j++){
+    const el=document.getElementById("vs"+i+j);
+    const raw=(el?.value||"").trim();
+    if(raw===""||raw.toUpperCase()==="N/A") continue;
+    const v=parseFloat(raw);
+    if(!isNaN(v)&&v>=1&&v<=5&&Number.isInteger(v)){ s+=v; c++; }
+    else hasInvalid=true;
+  }
+  const tag=document.getElementById("vt"+i);
+  if(hasInvalid){
+    tag.textContent="Fix invalid scores (must be 1–5 or N/A)";
+    tag.style.color="var(--red-text)";
+  } else {
+    tag.textContent=c>0?"Total: "+s+" / 40":"Total: — / 40";
+    tag.style.color="var(--blue)";
+  }
+}
+
+function addAction(){
+  ac++; const j=ac;
+  const al=document.getElementById("alist");
+  const d=document.createElement("div"); d.className="vblock";
+  d.innerHTML=`
+    <div class="row2" style="margin-bottom:8px">
+      <div class="field" style="margin:0"><label class="lbl">Vendor</label><input type="text" id="av${j}" placeholder="Vendor name"></div>
+      <div class="field" style="margin:0"><label class="lbl">Issue / observation</label><input type="text" id="ai${j}" placeholder="Describe issue"></div>
+    </div>
+    <div class="row2">
+      <div class="field" style="margin:0"><label class="lbl">Action required</label><input type="text" id="aa${j}" placeholder="What must be done"></div>
+      <div class="field" style="margin:0"><label class="lbl">Deadline</label><input type="date" id="ad${j}"></div>
+    </div>
+    <div class="field" style="margin-top:8px"><label class="lbl">Responsible officer</label><input type="text" id="ao${j}" placeholder="Name"></div>`;
+  al.appendChild(d);
+}
+
+// ── Submit ───────────────────────────────────────────
+async function submitEntry(){
+  const taster=document.getElementById("tname").value.trim();
+  if(!taster){ msg("submit-msg","Please enter your name before submitting.","red"); return }
+  if(!sessionKey){ msg("submit-msg","No active session found.","red"); return }
+
+  // Check for invalid scores before submitting
+  for(let i=1;i<=vc;i++){
+    for(let j=0;j<7;j++){
+      const el=document.getElementById("vs"+i+j);
+      const raw=(el?.value||"").trim();
+      if(raw===""||raw.toUpperCase()==="N/A") continue;
+      const v=parseFloat(raw);
+      if(isNaN(v)||v<1||v>5||!Number.isInteger(v)){
+        msg("submit-msg","Vendor "+i+" has an invalid score. Each score must be a whole number from 1 to 5, or N/A.","red");
+        el.focus(); return;
+      }
+    }
+  }
+
+  const btn=document.getElementById("submit-btn");
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Saving...';
+
+  const vendors=[];
+  for(let i=1;i<=vc;i++){
+    vendors.push({
+      name:document.getElementById("vn"+i)?.value||"",
+      cat:document.getElementById("vc"+i)?.value||"",
+      att:document.querySelector('input[name="va'+i+'"]:checked')?.value||"—",
+      taste:document.getElementById("vs"+i+"0")?.value||"N/A",
+      aroma:document.getElementById("vs"+i+"1")?.value||"N/A",
+      appear:document.getElementById("vs"+i+"2")?.value||"N/A",
+      hygiene:document.getElementById("vs"+i+"3")?.value||"N/A",
+      environ:document.getElementById("vs"+i+"4")?.value||"N/A",
+      storage:document.getElementById("vs"+i+"5")?.value||"N/A",
+      safety:document.getElementById("vs"+i+"6")?.value||"N/A",
+      sample:document.getElementById("fs"+i)?.value||"",
+      cust:document.getElementById("fc"+i)?.value||"",
+      obs:document.getElementById("fo"+i)?.value||"",
+      fu:document.querySelector('input[name="fu'+i+'"]:checked')?.value||"—",
+      pi:document.querySelector('input[name="pi'+i+'"]:checked')?.value||"—"
+    });
+  }
+
+  const actions=[];
+  for(let j=1;j<=ac;j++){
+    if(document.getElementById("ai"+j)?.value){
+      actions.push({
+        vendor:document.getElementById("av"+j)?.value||"",
+        issue:document.getElementById("ai"+j)?.value||"",
+        action:document.getElementById("aa"+j)?.value||"",
+        deadline:document.getElementById("ad"+j)?.value||"",
+        officer:document.getElementById("ao"+j)?.value||""
+      });
+    }
+  }
+
+  const entry={
+    taster,
+    role:document.getElementById("trole").value.trim(),
+    time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
+    timestamp:Date.now(),
+    vendors,
+    actions
+  };
+
+  try{
+    const s=await fbGet("/"+sessionKey);
+    const subs=s.submissions||{};
+    subs["s"+Date.now()]=entry;
+    await fbPatch("/"+sessionKey,{submissions:subs});
+    // Show success screen
+    document.getElementById("success-msg").textContent = "Your assessment was saved at " + entry.time + ". Thank you, " + taster + ".";
+    show("screen-success");
+  }catch(e){
+    msg("submit-msg","Error saving: "+e.message+". Check your internet connection and try again.","red");
+    btn.disabled=false; btn.textContent="Submit my assessment";
+  }
+}
+
+// ── Reset for next taster ────────────────────────────
+function resetForNextTaster(){
+  // Clear taster name & role only — keep vendor structure in place
+  document.getElementById("tname").value="";
+  document.getElementById("trole").value="";
+  // Clear all radio selections
+  document.querySelectorAll('input[type=radio]').forEach(r=>r.checked=false);
+  // Clear all text inputs inside vendor/feedback blocks
+  document.querySelectorAll("#vlist input[type=text],#flist input[type=text],#flist textarea,#alist input[type=text],#alist input[type=date]").forEach(i=>i.value="");
+  // Clear score inputs
+  document.querySelectorAll(".score-grid input").forEach(i=>i.value="");
+  // Reset totals
+  for(let i=1;i<=vc;i++) document.getElementById("vt"+i).textContent="Total: — / 40";
+  // Clear submit msg
+  msg("submit-msg","","");
+  refreshCount();
+  show("screen-form");
+  window.scrollTo(0,0);
+}
+
+// ── Boot ─────────────────────────────────────────────
+checkTodaySession();
+</script>
+</body>
+</html>

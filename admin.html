@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Vendor Inspection</title>
+<style>
+:root{
+  --bg:#fff;--bg2:#f7f7f5;--bg3:#efefec;
+  --text:#1a1a1a;--text2:#555;--text3:#999;
+  --border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);
+  --blue:#1a5fd4;--blue-bg:#e8f0fd;--blue-text:#1a4ba8;--blue-dark:#1244a8;
+  --green:#166534;--green-bg:#dcfce7;--green-text:#14532d;
+  --amber-bg:#fef3c7;--amber-text:#78350f;
+  --red:#991b1b;--red-bg:#fee2e2;--red-text:#991b1b;
+  --purple-bg:#f3f0ff;--purple-text:#5b21b6;
+  --r:12px;--rs:7px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--text);min-height:100vh}
+
+/* ── Login ─────────────────────────────────── */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+.login-box{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--r);padding:2.5rem 2rem;width:100%;max-width:380px;text-align:center}
+.login-logo{width:52px;height:52px;background:var(--blue);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:22px}
+.login-title{font-size:20px;font-weight:700;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--text2);margin-bottom:1.75rem}
+.login-field{text-align:left;margin-bottom:1rem}
+.lbl{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+input[type=text],input[type=password],input[type=date],textarea,select{width:100%;padding:9px 11px;border:0.5px solid var(--border2);border-radius:var(--rs);font-size:14px;color:var(--text);background:var(--bg);font-family:inherit;transition:border-color .15s}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,95,212,.1)}
+textarea{resize:vertical;min-height:64px;line-height:1.5}
+.login-err{background:var(--red-bg);color:var(--red-text);border-radius:var(--rs);padding:9px 12px;font-size:13px;margin-bottom:1rem;display:none}
+.login-err.show{display:block}
+
+/* ── App shell ─────────────────────────────── */
+#app{display:none;min-height:100vh}
+.topbar{background:var(--bg);border-bottom:0.5px solid var(--border2);padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.logo-pill{background:var(--blue);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.03em}
+.topbar-title{font-size:15px;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.admin-badge{font-size:12px;color:var(--text2)}
+.sidebar-layout{display:flex;min-height:calc(100vh - 56px)}
+.sidebar{width:220px;background:var(--bg);border-right:0.5px solid var(--border2);padding:1.25rem 0;flex-shrink:0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto}
+.nav-section{padding:0 1rem;margin-bottom:1.5rem}
+.nav-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;padding:0 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:background .1s,color .1s}
+.nav-item:hover{background:var(--bg2);color:var(--text)}
+.nav-item.active{background:var(--blue-bg);color:var(--blue-text)}
+.nav-icon{font-size:15px;width:20px;text-align:center}
+.main{flex:1;padding:2rem 1.5rem;min-width:0}
+
+/* ── Common components ─────────────────────── */
+.page-title{font-size:20px;font-weight:700;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text2);margin-bottom:1.75rem}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:1.25rem 1.5rem;margin-bottom:1.25rem}
+.card-t{font-size:14px;font-weight:600;margin-bottom:1rem;padding-bottom:8px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+.field{margin-bottom:.9rem}.field:last-child{margin-bottom:0}
+.btn{padding:8px 16px;border:0.5px solid var(--border2);border-radius:var(--rs);font-size:13px;cursor:pointer;background:transparent;color:var(--text);font-family:inherit;font-weight:500;transition:background .1s}
+.btn:hover{background:var(--bg2)}.btn:active{opacity:.85}
+.btn.pri{background:var(--blue);color:#fff;border-color:transparent}
+.btn.pri:hover{background:var(--blue-dark)}
+.btn.danger{background:var(--red-bg);color:var(--red-text);border-color:transparent}
+.btn.sm{padding:5px 11px;font-size:12px}
+.btn.full{width:100%;padding:11px;font-size:14px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{padding:10px 13px;border-radius:var(--rs);font-size:13px;margin-top:10px;display:none}
+.msg.green{background:var(--green-bg);color:var(--green-text);display:block}
+.msg.red{background:var(--red-bg);color:var(--red-text);display:block}
+.msg.amber{background:var(--amber-bg);color:var(--amber-text);display:block}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge.blue{background:var(--blue-bg);color:var(--blue-text)}
+.badge.green{background:var(--green-bg);color:var(--green-text)}
+.badge.amber{background:var(--amber-bg);color:var(--amber-text)}
+.badge.purple{background:var(--purple-bg);color:var(--purple-text)}
+
+/* ── Stats grid ────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem}
+.stat-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:1.1rem 1.25rem}
+.stat-label{font-size:12px;color:var(--text2);margin-bottom:6px}
+.stat-value{font-size:26px;font-weight:700;line-height:1}
+.stat-sub{font-size:12px;color:var(--text3);margin-top:4px}
+
+/* ── Session list ──────────────────────────── */
+.session-row{border:0.5px solid var(--border);border-radius:var(--rs);padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg2);flex-wrap:wrap}
+.session-row:last-child{margin-bottom:0}
+.session-info h4{font-size:14px;font-weight:600;margin-bottom:2px}
+.session-info p{font-size:12px;color:var(--text2)}
+.session-actions{display:flex;gap:8px;flex-shrink:0}
+
+/* ── Report ────────────────────────────────── */
+.rtable{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.rtable th{background:var(--bg2);text-align:left;padding:7px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);border:0.5px solid var(--border)}
+.rtable td{padding:8px 10px;border:0.5px solid var(--border);vertical-align:top}
+.rtable tr:nth-child(even) td{background:var(--bg2)}
+
+/* ── Settings ──────────────────────────────── */
+.setting-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1rem 0;border-bottom:0.5px solid var(--border)}
+.setting-row:last-child{border-bottom:none;padding-bottom:0}
+.setting-info h4{font-size:14px;font-weight:600;margin-bottom:3px}
+.setting-info p{font-size:12px;color:var(--text2);max-width:380px}
+.setting-action{flex-shrink:0}
+
+/* ── Spinner ───────────────────────────────── */
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .55s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loading-state{text-align:center;padding:2.5rem;color:var(--text3);font-size:14px}
+
+/* ── Panel display ─────────────────────────── */
+.panel{display:none}.panel.active{display:block}
+
+@media(max-width:700px){
+  .sidebar{display:none}
+  .row2,.row3{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:1fr 1fr}
+}
+@media print{.topbar,.sidebar,.session-actions,.btn{display:none!important}.main{padding:0}}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     LOGIN SCREEN
+════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">&#128203;</div>
+    <div class="login-title">Admin Portal</div>
+    <div class="login-sub">Food Vendor Inspection System</div>
+    <div class="login-err" id="login-err">Incorrect password. Please try again.</div>
+    <div class="login-field">
+      <label class="lbl">Admin password</label>
+      <input type="password" id="pwd-input" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn pri full" onclick="doLogin()">Sign in</button>
+    <p style="font-size:12px;color:var(--text3);margin-top:1.25rem">Tasters don't need to log in — share the taster form directly.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════════════ -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="logo-pill">ADMIN</span>
+      <span class="topbar-title">Vendor Inspection</span>
+    </div>
+    <div class="topbar-right">
+      <span class="admin-badge" id="admin-badge">Administrator</span>
+      <button class="btn sm" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="sidebar-layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="nav-section">
+        <div class="nav-label">Overview</div>
+        <div class="nav-item active" onclick="showPanel('dashboard')">
+          <span class="nav-icon">&#9783;</span> Dashboard
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Sessions</div>
+        <div class="nav-item" onclick="showPanel('create-session')">
+          <span class="nav-icon">&#43;</span> Create session
+        </div>
+        <div class="nav-item" onclick="showPanel('sessions')">
+          <span class="nav-icon">&#128197;</span> All sessions
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Reports</div>
+        <div class="nav-item" onclick="showPanel('reports')">
+          <span class="nav-icon">&#128202;</span> Generate report
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">System</div>
+        <div class="nav-item" onclick="showPanel('settings')">
+          <span class="nav-icon">&#9881;</span> Settings
+        </div>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="main">
+
+      <!-- ── Dashboard ── -->
+      <div class="panel active" id="panel-dashboard">
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub">Overview of all inspection activity</div>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card"><div class="stat-label">Total sessions</div><div class="stat-value" id="stat-sessions">—</div><div class="stat-sub">All time</div></div>
+          <div class="stat-card"><div class="stat-label">Total submissions</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">Across all sessions</div></div>
+          <div class="stat-card"><div class="stat-label">Latest session</div><div class="stat-value" id="stat-latest" style="font-size:16px;margin-top:4px">—</div><div class="stat-sub" id="stat-latest-sub">—</div></div>
+          <div class="stat-card"><div class="stat-label">Tasters today</div><div class="stat-value" id="stat-today">—</div><div class="stat-sub">In today's session</div></div>
+        </div>
+        <div class="card">
+          <div class="card-t">Recent sessions <button class="btn sm pri" onclick="showPanel('create-session')">+ New session</button></div>
+          <div id="dashboard-sessions"><div class="loading-state">Loading sessions...</div></div>
+        </div>
+      </div>
+
+      <!-- ── Create session ── -->
+      <div class="panel" id="panel-create-session">
+        <div class="page-title">Create session</div>
+        <div class="page-sub">Set up a new inspection date for tasters to submit to</div>
+        <div class="card">
+          <div class="card-t">Session details</div>
+          <div class="row2">
+            <div class="field"><label class="lbl">Inspection date</label><input type="date" id="cs-date"></div>
+            <div class="field"><label class="lbl">Event / location name</label><input type="text" id="cs-name" placeholder="e.g. Sunday Market"></div>
+          </div>
+          <div class="field"><label class="lbl">Notes (optional)</label><textarea id="cs-notes" placeholder="Any instructions or notes for this inspection session..."></textarea></div>
+          <div style="margin-top:1rem;display:flex;gap:10px">
+            <button class="btn pri" id="cs-btn" onclick="createSession()">Create session</button>
+          </div>
+          <div id="cs-msg" class="msg"></div>
+        </div>
+        <div class="card" style="background:var(--blue-bg);border-color:transparent">
+          <div style="font-size:14px;font-weight:600;color:var(--blue-text);margin-bottom:8px">After creating a session</div>
+          <p style="font-size:13px;color:var(--blue-text);line-height:1.6">Share the <strong>taster form</strong> (vendor_inspection_app.html) with your tasters. They open it, pick the same date, and start submitting. You can monitor submissions from the <strong>All sessions</strong> tab and generate the final report when done.</p>
+        </div>
+      </div>
+
+      <!-- ── All sessions ── -->
+      <div class="panel" id="panel-sessions">
+        <div class="page-title">All sessions</div>
+        <div class="page-sub">View, manage and delete inspection sessions</div>
+        <div class="card">
+          <div class="card-t">Sessions <span id="sessions-count" class="badge blue">—</span></div>
+          <div id="all-sessions-list"><div class="loading-state">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- ── Reports ── -->
+      <div class="panel" id="panel-reports">
+        <div class="page-title">Generate report</div>
+        <div class="page-sub">Pick a session and produce a full inspection report</div>
+        <div class="card">
+          <div class="card-t">Select session</div>
+          <div class="row2">
+            <div class="field">
+              <label class="lbl">Session</label>
+              <select id="report-select" onchange="previewSessionInfo()">
+                <option value="">— Choose a session —</option>
+              </select>
+            </div>
+            <div class="field" style="display:flex;align-items:flex-end">
+              <button class="btn pri full" onclick="generateReport()">Generate report</button>
+            </div>
+          </div>
+          <div id="report-preview" style="margin-top:8px;font-size:13px;color:var(--text2)"></div>
+        </div>
+        <div id="report-output"></div>
+        <div id="report-print-btn" style="display:none;margin-top:1rem">
+          <button class="btn pri" onclick="window.print()">&#128438; Print / Save as PDF</button>
+        </div>
+      </div>
+
+      <!-- ── Settings ── -->
+      <div class="panel" id="panel-settings">
+        <div class="page-title">Settings</div>
+        <div class="page-sub">Manage system configuration</div>
+        <div class="card">
+          <div class="card-t">Admin credentials</div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <h4>Change admin password</h4>
+              <p>Update the password used to access this admin panel. Store it somewhere safe — there is no password recovery.</p>
+            </div>
+            <div class="setting-action">
+              <button class="btn" onclick="showChangePassword()">Change password</button>
+            </div>
+          </div>
+          <div id="change-pwd-form" style="display:none;margin-top:1rem">
+            <div class="row2">
+              <div class="field"><label class="lbl">New password</label><input type="password" id="new-pwd" placeholder="Enter new password"></div>
+              <div class="field"><label class="lbl">Confirm password</label><input type="password" id="confirm-pwd" placeholder="Repeat new password"></div>
+            </div>
+            <button class="btn pri sm" onclick="changePassword()">Save new password</button>
+            <div id="pwd-msg" class="msg"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-t">Firebase connection</div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <h4>Database URL</h4>
+              <p id="db-url-display" style="font-family:monospace;color:var(--blue-text);font-size:12px">—</p>
+            </div>
+            <div class="setting-action"><span class="badge green">Connected</span></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <h4>Test connection</h4>
+              <p>Verify the admin panel can read and write to Firebase.</p>
+            </div>
+            <div class="setting-action">
+              <button class="btn" onclick="testConnection()">Run test</button>
+            </div>
+          </div>
+          <div id="conn-msg" class="msg"></div>
+        </div>
+        <div class="card">
+          <div class="card-t">Danger zone</div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <h4>Delete all sessions</h4>
+              <p>Permanently delete every session and all submissions. This cannot be undone.</p>
+            </div>
+            <div class="setting-action">
+              <button class="btn danger sm" onclick="deleteAllSessions()">Delete all</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /sidebar-layout -->
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════
+const DB = "https://food-sampling-hod-iforum-default-rtdb.firebaseio.com";
+const DEFAULT_PASSWORD = "admin1234"; // Change this in Settings after first login
+const PWD_KEY = "vi_admin_pwd";
+const AUTH_KEY = "vi_admin_auth";
+
+// ═══════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════
+function getStoredPwd(){ return localStorage.getItem(PWD_KEY) || DEFAULT_PASSWORD }
+
+function doLogin(){
+  const pwd = document.getElementById("pwd-input").value;
+  const err = document.getElementById("login-err");
+  if(pwd === getStoredPwd()){
+    sessionStorage.setItem(AUTH_KEY, "1");
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    initApp();
+  } else {
+    err.classList.add("show");
+    document.getElementById("pwd-input").value = "";
+    document.getElementById("pwd-input").focus();
+  }
+}
+
+function doLogout(){
+  sessionStorage.removeItem(AUTH_KEY);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════════
+// FIREBASE REST
+// ═══════════════════════════════════════════════════
+async function fbGet(p){ const r=await fetch(DB+p+".json"); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
+async function fbPut(p,d){ const r=await fetch(DB+p+".json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
+async function fbPatch(p,d){ const r=await fetch(DB+p+".json",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
+async function fbDelete(p){ const r=await fetch(DB+p+".json",{method:"DELETE"}); if(!r.ok)throw new Error("HTTP "+r.status) }
+
+// ═══════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════
+function showPanel(name){
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
+  document.getElementById("panel-"+name).classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(n=>{
+    if(n.getAttribute("onclick")&&n.getAttribute("onclick").includes("'"+name+"'"))n.classList.add("active");
+  });
+  if(name==="dashboard") loadDashboard();
+  if(name==="sessions") loadAllSessions();
+  if(name==="reports") loadReportSelector();
+  if(name==="settings"){ document.getElementById("db-url-display").textContent = DB; }
+}
+
+// ═══════════════════════════════════════════════════
+// APP INIT
+// ═══════════════════════════════════════════════════
+function initApp(){
+  // set today as default date for create session
+  document.getElementById("cs-date").value = new Date().toISOString().split("T")[0];
+  loadDashboard();
+}
+
+// ═══════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════
+async function loadDashboard(){
+  try{
+    const data = await fbGet("/sessions");
+    if(!data){ setStats(0,0,"—","—",0); document.getElementById("dashboard-sessions").innerHTML='<div class="loading-state">No sessions yet. <a href="#" onclick="showPanel(\'create-session\')">Create the first one.</a></div>'; return }
+    const keys = Object.keys(data).sort().reverse();
+    let totalSubs = 0;
+    keys.forEach(k=>{ totalSubs += data[k].submissions ? Object.keys(data[k].submissions).length : 0 });
+    const latest = data[keys[0]];
+    const latestName = latest.name || latest.date;
+    const latestSubs = latest.submissions ? Object.keys(latest.submissions).length : 0;
+    // today's session
+    const todayKey = new Date().toISOString().split("T")[0].replace(/-/g,"");
+    const todaySubs = data[todayKey] && data[todayKey].submissions ? Object.keys(data[todayKey].submissions).length : 0;
+    setStats(keys.length, totalSubs, latestName, latest.date, todaySubs);
+    // recent sessions list
+    const container = document.getElementById("dashboard-sessions");
+    container.innerHTML = "";
+    keys.slice(0,5).forEach(k=>{ container.appendChild(buildSessionRow(k, data[k], true)) });
+    if(keys.length > 5){
+      const more = document.createElement("p");
+      more.style.cssText="font-size:13px;color:var(--text2);margin-top:10px;text-align:center";
+      more.innerHTML=`<a href="#" onclick="showPanel('sessions')" style="color:var(--blue)">View all ${keys.length} sessions →</a>`;
+      container.appendChild(more);
+    }
+  }catch(e){ document.getElementById("dashboard-sessions").innerHTML='<div class="loading-state" style="color:var(--red-text)">Error loading data: '+e.message+'</div>' }
+}
+
+function setStats(sessions,subs,latestName,latestDate,today){
+  document.getElementById("stat-sessions").textContent = sessions;
+  document.getElementById("stat-subs").textContent = subs;
+  document.getElementById("stat-latest").textContent = latestName;
+  document.getElementById("stat-latest-sub").textContent = latestDate || "—";
+  document.getElementById("stat-today").textContent = today;
+}
+
+// ═══════════════════════════════════════════════════
+// CREATE SESSION
+// ═══════════════════════════════════════════════════
+async function createSession(){
+  const date = document.getElementById("cs-date").value;
+  const name = document.getElementById("cs-name").value.trim();
+  const notes = document.getElementById("cs-notes").value.trim();
+  if(!date){ msg("cs-msg","Please select a date.","amber"); return }
+  const btn = document.getElementById("cs-btn");
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Creating...';
+  const key = "sessions/"+date.replace(/-/g,"");
+  try{
+    const existing = await fbGet("/"+key);
+    if(existing){ msg("cs-msg","A session for "+date+" already exists. Open it from All Sessions.","amber"); return }
+    await fbPut("/"+key,{ date, name: name||date, notes, submissions:{} });
+    msg("cs-msg","Session created for "+date+"! Share the taster form with your inspectors.","green");
+    document.getElementById("cs-name").value="";
+    document.getElementById("cs-notes").value="";
+  }catch(e){ msg("cs-msg","Error: "+e.message,"red") }
+  finally{ btn.disabled=false; btn.textContent="Create session" }
+}
+
+// ═══════════════════════════════════════════════════
+// ALL SESSIONS
+// ═══════════════════════════════════════════════════
+async function loadAllSessions(){
+  const list = document.getElementById("all-sessions-list");
+  list.innerHTML='<div class="loading-state">Loading...</div>';
+  try{
+    const data = await fbGet("/sessions");
+    if(!data){ list.innerHTML='<div class="loading-state">No sessions yet.</div>'; document.getElementById("sessions-count").textContent="0"; return }
+    const keys = Object.keys(data).sort().reverse();
+    document.getElementById("sessions-count").textContent = keys.length;
+    list.innerHTML="";
+    keys.forEach(k=>list.appendChild(buildSessionRow(k, data[k], false)));
+  }catch(e){ list.innerHTML='<div class="loading-state" style="color:var(--red-text)">Error: '+e.message+'</div>' }
+}
+
+function buildSessionRow(key, s, compact){
+  const subs = s.submissions ? Object.keys(s.submissions).length : 0;
+  const today = new Date().toISOString().split("T")[0].replace(/-/g,"");
+  const isToday = key === today;
+  const div = document.createElement("div");
+  div.className = "session-row";
+  div.innerHTML=`
+    <div class="session-info">
+      <h4>${s.name||s.date} ${isToday?'<span class="badge green">Today</span>':''}</h4>
+      <p>Date: ${s.date} &nbsp;&middot;&nbsp; ${subs} submission(s)${s.notes?' &nbsp;&middot;&nbsp; '+s.notes:''}</p>
+    </div>
+    <div class="session-actions">
+      <button class="btn sm pri" onclick="quickReport('sessions/${key}','${(s.name||s.date).replace(/'/g,"\\'")}','${s.date}')">Report</button>
+      ${!compact?`<button class="btn sm danger" onclick="deleteSession('sessions/${key}','${(s.name||s.date).replace(/'/g,"\\'")}')">Delete</button>`:''}
+    </div>`;
+  return div;
+}
+
+async function deleteSession(key, name){
+  if(!confirm("Delete session \""+name+"\"? This will remove all its submissions permanently.")) return;
+  try{
+    await fbDelete("/"+key);
+    loadAllSessions();
+    loadDashboard();
+  }catch(e){ alert("Error: "+e.message) }
+}
+
+// ═══════════════════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════════════════
+async function loadReportSelector(){
+  const sel = document.getElementById("report-select");
+  sel.innerHTML='<option value="">— Choose a session —</option>';
+  try{
+    const data = await fbGet("/sessions");
+    if(!data) return;
+    Object.keys(data).sort().reverse().forEach(k=>{
+      const s = data[k];
+      const subs = s.submissions ? Object.keys(s.submissions).length : 0;
+      const opt = document.createElement("option");
+      opt.value = "sessions/"+k;
+      opt.textContent = (s.name||s.date) + " — " + s.date + " ("+subs+" submission"+(subs!==1?"s":"")+")";
+      sel.appendChild(opt);
+    });
+  }catch(e){}
+}
+
+function previewSessionInfo(){
+  const sel = document.getElementById("report-select");
+  const preview = document.getElementById("report-preview");
+  if(!sel.value){ preview.textContent=""; return }
+  preview.innerHTML='<span class="spin" style="border-top-color:var(--blue)"></span> Loading session info...';
+  fbGet("/"+sel.value).then(s=>{
+    if(!s){ preview.textContent="Session not found."; return }
+    const subs = s.submissions ? Object.keys(s.submissions).length : 0;
+    preview.innerHTML=`<strong>${s.name||s.date}</strong> &nbsp;&middot;&nbsp; ${s.date} &nbsp;&middot;&nbsp; <strong>${subs}</strong> submission(s)`;
+  }).catch(()=>{ preview.textContent="" });
+}
+
+async function generateReport(){
+  const sel = document.getElementById("report-select");
+  if(!sel.value){ alert("Please select a session first."); return }
+  const out = document.getElementById("report-output");
+  const printBtn = document.getElementById("report-print-btn");
+  out.innerHTML='<div class="loading-state"><span class="spin" style="border-top-color:var(--blue)"></span> Generating report...</div>';
+  printBtn.style.display="none";
+  try{
+    const s = await fbGet("/"+sel.value);
+    if(!s||!s.submissions||Object.keys(s.submissions).length===0){ out.innerHTML='<div class="loading-state">No submissions found for this session.</div>'; return }
+    out.innerHTML = buildReport(s);
+    printBtn.style.display="block";
+  }catch(e){ out.innerHTML='<div class="loading-state" style="color:var(--red-text)">Error: '+e.message+'</div>' }
+}
+
+function quickReport(key, name, date){
+  showPanel("reports");
+  setTimeout(async()=>{
+    const sel = document.getElementById("report-select");
+    // wait for selector to load then pick
+    await loadReportSelector();
+    sel.value = key;
+    previewSessionInfo();
+    generateReport();
+  }, 100);
+}
+
+function buildReport(session){
+  const subs = Object.values(session.submissions||{});
+  const sf = ["taste","aroma","appear","hygiene","environ","storage","safety"];
+  let h=`<div class="card">`;
+  h+=`<div style="text-align:center;padding:1rem 0 1.5rem"><div style="font-size:22px;font-weight:700;margin-bottom:6px">Food Vendor Inspection Report</div><div style="font-size:14px;color:var(--text2)">${session.name||session.date} &nbsp;&middot;&nbsp; Date: ${session.date} &nbsp;&middot;&nbsp; ${subs.length} taster(s)</div></div>`;
+
+  // Tasters
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Tasters who submitted</div><table class="rtable"><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Time submitted</th><th>Vendors assessed</th></tr></thead><tbody>`;
+  subs.forEach((s,i)=>{ h+=`<tr><td>${i+1}</td><td><strong>${s.taster}</strong></td><td>${s.role||"—"}</td><td>${s.time}</td><td>${(s.vendors||[]).filter(v=>v.name).length}</td></tr>` });
+  h+=`</tbody></table></div>`;
+
+  // Vendor map
+  const vmap={};
+  subs.forEach(sub=>{ (sub.vendors||[]).forEach(v=>{ if(!v.name)return; const k=v.name.trim().toLowerCase(); if(!vmap[k])vmap[k]={name:v.name,cat:v.cat,entries:[]}; vmap[k].entries.push({taster:sub.taster,...v}) }) });
+
+  // Section 3
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 3 — Vendor assessment</div><table class="rtable"><thead><tr><th>Vendor</th><th>Cat.</th><th>Taster</th><th>Attend.</th><th>Taste</th><th>Aroma</th><th>Appear.</th><th>Hygiene</th><th>Environ.</th><th>Storage</th><th>Safety</th><th>Total</th></tr></thead><tbody>`;
+  let sn=1;
+  Object.values(vmap).forEach(vd=>{
+    const avg={};
+    sf.forEach(f=>{ const ns=vd.entries.map(e=>parseFloat(e[f])).filter(n=>!isNaN(n)); avg[f]=ns.length?(ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1):"N/A" });
+    const avgTot=sf.map(f=>parseFloat(avg[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0).toFixed(1);
+    vd.entries.forEach((e,ei)=>{
+      const tot=sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
+      const hasN=sf.some(f=>!isNaN(parseFloat(e[f])));
+      h+=`<tr>`;if(ei===0)h+=`<td rowspan="${vd.entries.length+1}" style="font-weight:600">${sn++}. ${vd.name}</td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
+      h+=`<td>${e.taster}</td><td>${e.att}</td><td>${e.taste}</td><td>${e.aroma}</td><td>${e.appear}</td><td>${e.hygiene}</td><td>${e.environ}</td><td>${e.storage}</td><td>${e.safety}</td><td>${hasN?tot+"/40":"—"}</td></tr>`;
+    });
+    h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td><td>—</td>${sf.map(f=>`<td><strong>${avg[f]}</strong></td>`).join("")}<td><strong>${avgTot}/40</strong></td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+
+  // Section 4
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 4 — Feedback &amp; observations</div><table class="rtable"><thead><tr><th>Vendor</th><th>Taster</th><th>Sampled product</th><th>Customer feedback</th><th>Observations</th><th>Follow-up?</th><th>Prev. resolved?</th></tr></thead><tbody>`;
+  Object.values(vmap).forEach(vd=>{ vd.entries.forEach(e=>{ h+=`<tr><td><strong>${e.name}</strong></td><td>${e.taster}</td><td>${e.sample||"—"}</td><td>${e.cust||"—"}</td><td>${e.obs||"—"}</td><td>${e.fu}</td><td>${e.pi}</td></tr>` }) });
+  h+=`</tbody></table></div>`;
+
+  // Section 5 – actions
+  const allA=[];subs.forEach(s=>{ (s.actions||[]).filter(a=>a.issue).forEach(a=>allA.push({taster:s.taster,...a})) });
+  if(allA.length){
+    h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 5 — Actions &amp; follow-ups</div><table class="rtable"><thead><tr><th>#</th><th>Vendor</th><th>Raised by</th><th>Issue</th><th>Action</th><th>Deadline</th><th>Officer</th></tr></thead><tbody>`;
+    allA.forEach((a,i)=>{ h+=`<tr><td>${i+1}</td><td>${a.vendor||"—"}</td><td>${a.taster}</td><td>${a.issue}</td><td>${a.action||"—"}</td><td>${a.deadline||"—"}</td><td>${a.officer||"—"}</td></tr>` });
+    h+=`</tbody></table></div>`;
+  }
+
+  // Section 6 – sign-off
+  h+=`<div><div class="card-t" style="font-size:13px">Section 6 — Sign-off</div><table class="rtable"><thead><tr><th>Inspector</th><th>Role</th><th>Time submitted</th></tr></thead><tbody>`;
+  subs.forEach(s=>{ h+=`<tr><td><strong>${s.taster}</strong></td><td>${s.role||"—"}</td><td>${s.time}</td></tr>` });
+  h+=`</tbody></table></div></div>`;
+  return h;
+}
+
+// ═══════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════
+function showChangePassword(){
+  const f = document.getElementById("change-pwd-form");
+  f.style.display = f.style.display==="none" ? "block" : "none";
+}
+
+function changePassword(){
+  const np = document.getElementById("new-pwd").value;
+  const cp = document.getElementById("confirm-pwd").value;
+  if(!np){ msg("pwd-msg","Enter a new password.","amber"); return }
+  if(np !== cp){ msg("pwd-msg","Passwords do not match.","red"); return }
+  if(np.length < 6){ msg("pwd-msg","Password must be at least 6 characters.","amber"); return }
+  localStorage.setItem(PWD_KEY, np);
+  msg("pwd-msg","Password updated. You'll use the new password next time you log in.","green");
+  document.getElementById("new-pwd").value="";
+  document.getElementById("confirm-pwd").value="";
+}
+
+async function testConnection(){
+  const m = document.getElementById("conn-msg");
+  m.className="msg amber"; m.textContent="Testing connection..."; m.style.display="block";
+  try{
+    await fbGet("/sessions");
+    m.className="msg green"; m.textContent="Connection successful. Firebase is responding correctly.";
+  }catch(e){
+    m.className="msg red"; m.textContent="Connection failed: "+e.message;
+  }
+}
+
+async function deleteAllSessions(){
+  if(!confirm("DELETE ALL SESSIONS? This removes every session and all taster submissions. This CANNOT be undone.")) return;
+  if(!confirm("Are you absolutely sure? Type OK in the next prompt.")) return;
+  const confirm2 = prompt("Type DELETE to confirm:");
+  if(confirm2 !== "DELETE"){ alert("Cancelled."); return }
+  try{
+    await fbDelete("/sessions");
+    alert("All sessions deleted.");
+  }catch(e){ alert("Error: "+e.message) }
+}
+
+// ═══════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════
+function msg(id,txt,cls){
+  const e=document.getElementById(id);
+  if(!e)return;
+  e.className="msg"+(txt?" "+cls:"");
+  e.textContent=txt;
+  e.style.display=txt?"block":"none";
+}
+
+// ═══════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════
+if(sessionStorage.getItem(AUTH_KEY)==="1"){
+  document.getElementById("login-screen").style.display="none";
+  document.getElementById("app").style.display="block";
+  initApp();
+}
+document.getElementById("pwd-input").addEventListener("keydown",e=>{ if(e.key==="Enter")doLogin() });
+</script>
+</body>
+</html>
