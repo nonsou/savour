@@ -609,7 +609,7 @@ function buildReport(session){
       h+=`<tr>`;if(ei===0)h+=`<td rowspan="${vd.entries.length+1}" style="font-weight:600">${sn++}. ${vd.name}</td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
       h+=`<td>${e.taster}</td><td>${e.att}</td><td>${e.taste}</td><td>${e.aroma}</td><td>${e.appear}</td><td>${e.hygiene}</td><td>${e.environ}</td><td>${e.storage}</td><td>${e.safety}</td><td>${hasN?tot+"/35 · "+Math.round(tot/35*100)+"%":"—"}</td></tr>`;
     });
-    h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td><td>—</td>${sf.map(f=>`<td><strong>${avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
+    h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td>${sf.map(f=>`<td><strong>${avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
   });
   h+=`</tbody></table></div>`;
 
