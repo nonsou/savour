@@ -17,7 +17,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
 .field{margin-bottom:.9rem}.field:last-child{margin-bottom:0}
 .lbl{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
-input[type=text],input[type=date],textarea{width:100%;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);font-size:14px;color:var(--text);background:var(--bg);font-family:inherit}
+input[type=text],input[type=date],textarea,select{width:100%;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);font-size:14px;color:var(--text);background:var(--bg);font-family:inherit}
 input:focus,textarea:focus{outline:none;border-color:var(--blue)}
 textarea{resize:vertical;min-height:64px;line-height:1.5}
 .btn{padding:9px 18px;border:0.5px solid var(--border2);border-radius:var(--rs);font-size:14px;cursor:pointer;background:transparent;color:var(--text);font-family:inherit}
@@ -30,7 +30,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 .vblock{border:0.5px solid var(--border);border-radius:var(--rs);padding:1rem;margin-bottom:1rem;background:var(--bg2)}
 .vblock:last-child{margin-bottom:0}
 .score-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px}
-.score-grid input{text-align:center;padding:6px 4px}
+.score-grid select{padding:6px 4px;text-align:center;text-align-last:center}
 .total-tag{font-size:13px;font-weight:600;color:var(--blue);margin-top:8px;display:block}
 .att-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
 .att-opt{display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer}
@@ -217,6 +217,7 @@ async function refreshCount(){
 function addVendor(){
   vc++; const i=vc;
   const vl=document.getElementById("vlist"), fl=document.getElementById("flist");
+  const opts=`<option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="N/A">N/A</option>`;
 
   const vd=document.createElement("div"); vd.className="vblock";
   vd.innerHTML=`
@@ -230,24 +231,26 @@ function addVendor(){
     </div>
     <label class="lbl">Attendance</label>
     <div class="att-row">
-      <label class="att-opt"><input type="radio" name="va${i}" value="Present"> Present</label>
-      <label class="att-opt"><input type="radio" name="va${i}" value="Absent (with notice)"> Absent (notice)</label>
-      <label class="att-opt"><input type="radio" name="va${i}" value="Absent (no notice)"> Absent (no notice)</label>
+      <label class="att-opt"><input type="radio" name="va${i}" value="Present" onchange="updateAttendance(${i})"> Present</label>
+      <label class="att-opt"><input type="radio" name="va${i}" value="Absent (with notice)" onchange="updateAttendance(${i})"> Absent (notice)</label>
+      <label class="att-opt"><input type="radio" name="va${i}" value="Absent (no notice)" onchange="updateAttendance(${i})"> Absent (no notice)</label>
     </div>
-    <label class="lbl" style="margin-top:10px">Scores — enter 1–5 or N/A per criterion</label>
-    <div class="score-grid">
-      <div><label class="lbl">Taste</label><input type="text" id="vs${i}0" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
-      <div><label class="lbl">Aroma</label><input type="text" id="vs${i}1" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
-      <div><label class="lbl">Appear.</label><input type="text" id="vs${i}2" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
-      <div><label class="lbl">Hygiene</label><input type="text" id="vs${i}3" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
-      <div><label class="lbl">Environ.</label><input type="text" id="vs${i}4" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
-      <div><label class="lbl">Storage</label><input type="text" id="vs${i}5" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
-      <div><label class="lbl">Safety</label><input type="text" id="vs${i}6" placeholder="—" oninput="validateScore(this,${i})" inputmode="numeric"></div>
-    </div>
-    <span class="total-tag" id="vt${i}">Total: — / 40</span>`;
+    <div id="vscores${i}">
+      <label class="lbl" style="margin-top:10px">Scores — pick 1–5 or N/A per criterion</label>
+      <div class="score-grid">
+        <div><label class="lbl">Taste</label><select id="vs${i}0" onchange="calcT(${i})">${opts}</select></div>
+        <div><label class="lbl">Aroma</label><select id="vs${i}1" onchange="calcT(${i})">${opts}</select></div>
+        <div><label class="lbl">Appear.</label><select id="vs${i}2" onchange="calcT(${i})">${opts}</select></div>
+        <div><label class="lbl">Hygiene</label><select id="vs${i}3" onchange="calcT(${i})">${opts}</select></div>
+        <div><label class="lbl">Environ.</label><select id="vs${i}4" onchange="calcT(${i})">${opts}</select></div>
+        <div><label class="lbl">Storage</label><select id="vs${i}5" onchange="calcT(${i})">${opts}</select></div>
+        <div><label class="lbl">Safety</label><select id="vs${i}6" onchange="calcT(${i})">${opts}</select></div>
+      </div>
+      <span class="total-tag" id="vt${i}">Total: — / 35</span>
+    </div>`;
   vl.appendChild(vd);
 
-  const fd=document.createElement("div"); fd.className="vblock";
+  const fd=document.createElement("div"); fd.className="vblock"; fd.id="fblock"+i;
   fd.innerHTML=`
     <div style="font-size:14px;font-weight:600;margin-bottom:10px">Vendor ${i} — <span id="fn${i}" style="color:var(--text2);font-weight:400">—</span></div>
     <div class="row2" style="margin-bottom:10px">
@@ -264,44 +267,27 @@ function addVendor(){
 
 function syncN(i){ const n=document.getElementById("vn"+i)?.value||"—"; const e=document.getElementById("fn"+i); if(e)e.textContent=n }
 
-function validateScore(el, vendorIdx){
-  const raw = el.value.trim();
-  // Allow empty or N/A
-  if(raw === "" || raw.toUpperCase() === "N/A"){ el.style.borderColor=""; el.style.background=""; calcT(vendorIdx); return }
-  const v = parseFloat(raw);
-  if(isNaN(v) || v < 1 || v > 5 || !Number.isInteger(v)){
-    el.style.borderColor = "var(--red-text)";
-    el.style.background = "var(--red-bg)";
-    // If out of range number, cap it silently after a short pause
-    if(!isNaN(v) && Number.isInteger(v)){
-      if(v > 5){ el.value = "5"; el.style.borderColor=""; el.style.background=""; }
-      if(v < 1){ el.value = "1"; el.style.borderColor=""; el.style.background=""; }
-    }
-  } else {
-    el.style.borderColor = "var(--green)";
-    el.style.background = "var(--green-bg)";
-  }
-  calcT(vendorIdx);
+// Absent vendors don't need scores/feedback filled in — hide both blocks so tasters
+// aren't tempted to score a stall that wasn't there. Show them again on Present/unset.
+function updateAttendance(i){
+  const att = document.querySelector('input[name="va'+i+'"]:checked')?.value;
+  const absent = att === "Absent (with notice)" || att === "Absent (no notice)";
+  const scores = document.getElementById("vscores"+i);
+  const feedback = document.getElementById("fblock"+i);
+  if(scores) scores.style.display = absent ? "none" : "";
+  if(feedback) feedback.style.display = absent ? "none" : "";
 }
 
 function calcT(i){
-  let s=0, c=0, hasInvalid=false;
+  let s=0, c=0;
   for(let j=0;j<7;j++){
-    const el=document.getElementById("vs"+i+j);
-    const raw=(el?.value||"").trim();
-    if(raw===""||raw.toUpperCase()==="N/A") continue;
+    const raw=(document.getElementById("vs"+i+j)?.value||"").trim();
+    if(raw===""||raw==="N/A") continue;
     const v=parseFloat(raw);
-    if(!isNaN(v)&&v>=1&&v<=5&&Number.isInteger(v)){ s+=v; c++; }
-    else hasInvalid=true;
+    if(!isNaN(v)){ s+=v; c++; }
   }
   const tag=document.getElementById("vt"+i);
-  if(hasInvalid){
-    tag.textContent="Fix invalid scores (must be 1–5 or N/A)";
-    tag.style.color="var(--red-text)";
-  } else {
-    tag.textContent=c>0?"Total: "+s+" / 40":"Total: — / 40";
-    tag.style.color="var(--blue)";
-  }
+  tag.textContent = c>0 ? "Total: "+s+" / 35" : "Total: — / 35";
 }
 
 function addAction(){
@@ -327,18 +313,27 @@ async function submitEntry(){
   if(!taster){ msg("submit-msg","Please enter your name before submitting.","red"); return }
   if(!sessionKey){ msg("submit-msg","No active session found.","red"); return }
 
-  // Check for invalid scores before submitting
+  // Require all 7 scores picked for every Present vendor. Absent vendors are skipped;
+  // their hidden fields serialize as "N/A" via the || "N/A" fallback below.
+  const fieldNames = ["Taste","Aroma","Appearance","Hygiene","Environment","Storage","Safety"];
+  const missing = [];
   for(let i=1;i<=vc;i++){
+    const att = document.querySelector('input[name="va'+i+'"]:checked')?.value;
+    if(att !== "Present") continue;
+    const vname = (document.getElementById("vn"+i)?.value || "").trim();
+    const missingFields = [];
     for(let j=0;j<7;j++){
-      const el=document.getElementById("vs"+i+j);
-      const raw=(el?.value||"").trim();
-      if(raw===""||raw.toUpperCase()==="N/A") continue;
-      const v=parseFloat(raw);
-      if(isNaN(v)||v<1||v>5||!Number.isInteger(v)){
-        msg("submit-msg","Vendor "+i+" has an invalid score. Each score must be a whole number from 1 to 5, or N/A.","red");
-        el.focus(); return;
-      }
+      const raw = (document.getElementById("vs"+i+j)?.value || "").trim();
+      if(raw === "") missingFields.push(fieldNames[j]);
     }
+    if(missingFields.length){
+      const label = vname ? `Vendor ${i} (${vname})` : `Vendor ${i}`;
+      missing.push(`${label}: missing ${missingFields.join(", ")}`);
+    }
+  }
+  if(missing.length){
+    msg("submit-msg", "Please complete all score fields for Present vendors — " + missing.join(" · "), "red");
+    return;
   }
 
   const btn=document.getElementById("submit-btn");
@@ -409,9 +404,12 @@ function resetForNextTaster(){
   // Clear all text inputs inside vendor/feedback blocks
   document.querySelectorAll("#vlist input[type=text],#flist input[type=text],#flist textarea,#alist input[type=text],#alist input[type=date]").forEach(i=>i.value="");
   // Clear score inputs
-  document.querySelectorAll(".score-grid input").forEach(i=>i.value="");
-  // Reset totals
-  for(let i=1;i<=vc;i++) document.getElementById("vt"+i).textContent="Total: — / 40";
+  document.querySelectorAll(".score-grid select").forEach(s=>s.value="");
+  // Reset totals + restore scores/feedback visibility (attendance radios were just cleared)
+  for(let i=1;i<=vc;i++){
+    document.getElementById("vt"+i).textContent="Total: — / 35";
+    updateAttendance(i);
+  }
   // Clear submit msg
   msg("submit-msg","","");
   refreshCount();

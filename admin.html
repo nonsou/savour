@@ -600,14 +600,16 @@ function buildReport(session){
   Object.values(vmap).forEach(vd=>{
     const avg={};
     sf.forEach(f=>{ const ns=vd.entries.map(e=>parseFloat(e[f])).filter(n=>!isNaN(n)); avg[f]=ns.length?(ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1):"N/A" });
-    const avgTot=sf.map(f=>parseFloat(avg[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0).toFixed(1);
+    const avgNums=sf.map(f=>parseFloat(avg[f])).filter(n=>!isNaN(n));
+    const avgTot=avgNums.reduce((a,b)=>a+b,0).toFixed(1);
+    const avgCell=avgNums.length?`${avgTot}/35 · ${Math.round(parseFloat(avgTot)/35*100)}%`:"—";
     vd.entries.forEach((e,ei)=>{
       const tot=sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
       const hasN=sf.some(f=>!isNaN(parseFloat(e[f])));
       h+=`<tr>`;if(ei===0)h+=`<td rowspan="${vd.entries.length+1}" style="font-weight:600">${sn++}. ${vd.name}</td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
-      h+=`<td>${e.taster}</td><td>${e.att}</td><td>${e.taste}</td><td>${e.aroma}</td><td>${e.appear}</td><td>${e.hygiene}</td><td>${e.environ}</td><td>${e.storage}</td><td>${e.safety}</td><td>${hasN?tot+"/40":"—"}</td></tr>`;
+      h+=`<td>${e.taster}</td><td>${e.att}</td><td>${e.taste}</td><td>${e.aroma}</td><td>${e.appear}</td><td>${e.hygiene}</td><td>${e.environ}</td><td>${e.storage}</td><td>${e.safety}</td><td>${hasN?tot+"/35 · "+Math.round(tot/35*100)+"%":"—"}</td></tr>`;
     });
-    h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td><td>—</td>${sf.map(f=>`<td><strong>${avg[f]}</strong></td>`).join("")}<td><strong>${avgTot}/40</strong></td></tr>`;
+    h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td><td>—</td>${sf.map(f=>`<td><strong>${avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
   });
   h+=`</tbody></table></div>`;
 
