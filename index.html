@@ -147,6 +147,10 @@ let vc = 0, ac = 0;
 async function fbGet(p){ const r=await fetch(DB+p+".json"); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
 async function fbPatch(p,d){ const r=await fetch(DB+p+".json",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
 
+// Sessions run in Nigeria — compute "today" in Africa/Lagos, not the device's UTC day.
+// en-CA locale formats as YYYY-MM-DD, keeping the existing session-key format intact.
+function todayLagos(){ return new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}) }
+
 function show(id){
   ["screen-loading","screen-no-session","screen-form","screen-success"].forEach(s=>{
     document.getElementById(s).style.display = s===id ? "block" : "none";
@@ -163,7 +167,7 @@ function msg(id,txt,cls){
 
 // ── On load: check for today's session ──────────────
 async function checkTodaySession(){
-  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const today = todayLagos(); // YYYY-MM-DD in Africa/Lagos
   const key = "sessions/" + today.replace(/-/g,"");
 
   try{

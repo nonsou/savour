@@ -367,6 +367,10 @@ async function fbPut(p,d){ const r=await fetch(DB+p+".json",{method:"PUT",header
 async function fbPatch(p,d){ const r=await fetch(DB+p+".json",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
 async function fbDelete(p){ const r=await fetch(DB+p+".json",{method:"DELETE"}); if(!r.ok)throw new Error("HTTP "+r.status) }
 
+// Sessions run in Nigeria — compute "today" in Africa/Lagos, not the device's UTC day.
+// en-CA locale formats as YYYY-MM-DD, keeping the existing session-key format intact.
+function todayLagos(){ return new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}) }
+
 // ═══════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════
@@ -388,7 +392,7 @@ function showPanel(name){
 // ═══════════════════════════════════════════════════
 function initApp(){
   // set today as default date for create session
-  document.getElementById("cs-date").value = new Date().toISOString().split("T")[0];
+  document.getElementById("cs-date").value = todayLagos();
   loadDashboard();
 }
 
@@ -406,7 +410,7 @@ async function loadDashboard(){
     const latestName = latest.name || latest.date;
     const latestSubs = latest.submissions ? Object.keys(latest.submissions).length : 0;
     // today's session
-    const todayKey = new Date().toISOString().split("T")[0].replace(/-/g,"");
+    const todayKey = todayLagos().replace(/-/g,"");
     const todaySubs = data[todayKey] && data[todayKey].submissions ? Object.keys(data[todayKey].submissions).length : 0;
     setStats(keys.length, totalSubs, latestName, latest.date, todaySubs);
     // recent sessions list
@@ -470,7 +474,7 @@ async function loadAllSessions(){
 
 function buildSessionRow(key, s, compact){
   const subs = s.submissions ? Object.keys(s.submissions).length : 0;
-  const today = new Date().toISOString().split("T")[0].replace(/-/g,"");
+  const today = todayLagos().replace(/-/g,"");
   const isToday = key === today;
   const div = document.createElement("div");
   div.className = "session-row";
