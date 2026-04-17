@@ -119,6 +119,8 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 }
 @media print{.topbar,.sidebar,.session-actions,.btn{display:none!important}.main{padding:0}}
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 </head>
 <body>
 
@@ -130,10 +132,14 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     <div class="login-logo">&#128203;</div>
     <div class="login-title">Admin Portal</div>
     <div class="login-sub">Food Vendor Inspection System</div>
-    <div class="login-err" id="login-err">Incorrect password. Please try again.</div>
+    <div class="login-err" id="login-err">Sign-in failed. Check your email and password.</div>
     <div class="login-field">
-      <label class="lbl">Admin password</label>
-      <input type="password" id="pwd-input" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+      <label class="lbl">Email</label>
+      <input type="text" id="email-input" placeholder="you@example.com" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field">
+      <label class="lbl">Password</label>
+      <input type="password" id="pwd-input" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="btn pri full" onclick="doLogin()">Sign in</button>
     <p style="font-size:12px;color:var(--text3);margin-top:1.25rem">Tasters don't need to log in — share the taster form directly.</p>
@@ -150,7 +156,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
       <span class="topbar-title">Vendor Inspection</span>
     </div>
     <div class="topbar-right">
-      <span class="admin-badge" id="admin-badge">Administrator</span>
+      <span class="admin-badge" id="admin-badge"></span>
       <button class="btn sm" onclick="doLogout()">Sign out</button>
     </div>
   </div>
@@ -271,17 +277,18 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
           <div class="card-t">Admin credentials</div>
           <div class="setting-row">
             <div class="setting-info">
-              <h4>Change admin password</h4>
-              <p>Update the password used to access this admin panel. Store it somewhere safe — there is no password recovery.</p>
+              <h4>Change your password</h4>
+              <p>Update your Firebase Auth password. You'll need your current password to confirm the change.</p>
             </div>
             <div class="setting-action">
               <button class="btn" onclick="showChangePassword()">Change password</button>
             </div>
           </div>
           <div id="change-pwd-form" style="display:none;margin-top:1rem">
+            <div class="field"><label class="lbl">Current password</label><input type="password" id="cur-pwd" placeholder="Enter current password" autocomplete="current-password"></div>
             <div class="row2">
-              <div class="field"><label class="lbl">New password</label><input type="password" id="new-pwd" placeholder="Enter new password"></div>
-              <div class="field"><label class="lbl">Confirm password</label><input type="password" id="confirm-pwd" placeholder="Repeat new password"></div>
+              <div class="field"><label class="lbl">New password</label><input type="password" id="new-pwd" placeholder="Enter new password" autocomplete="new-password"></div>
+              <div class="field"><label class="lbl">Confirm password</label><input type="password" id="confirm-pwd" placeholder="Repeat new password" autocomplete="new-password"></div>
             </div>
             <button class="btn pri sm" onclick="changePassword()">Save new password</button>
             <div id="pwd-msg" class="msg"></div>
@@ -330,24 +337,25 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 // CONFIG
 // ═══════════════════════════════════════════════════
 const DB = "https://food-sampling-hod-iforum-default-rtdb.firebaseio.com";
-const DEFAULT_PASSWORD = "admin1234"; // Change this in Settings after first login
-const PWD_KEY = "vi_admin_pwd";
-const AUTH_KEY = "vi_admin_auth";
+firebase.initializeApp({
+  apiKey: "AIzaSyA9QP7kSusCHHKCmyTrV84It12qZweHIwI",
+  authDomain: "food-sampling-hod-iforum.firebaseapp.com",
+  databaseURL: DB
+});
+const auth = firebase.auth();
 
 // ═══════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════
-function getStoredPwd(){ return localStorage.getItem(PWD_KEY) || DEFAULT_PASSWORD }
-
-function doLogin(){
+async function doLogin(){
+  const email = document.getElementById("email-input").value.trim();
   const pwd = document.getElementById("pwd-input").value;
   const err = document.getElementById("login-err");
-  if(pwd === getStoredPwd()){
-    sessionStorage.setItem(AUTH_KEY, "1");
-    document.getElementById("login-screen").style.display = "none";
-    document.getElementById("app").style.display = "block";
-    initApp();
-  } else {
+  err.classList.remove("show");
+  try{
+    await auth.signInWithEmailAndPassword(email, pwd);
+    // onAuthStateChanged handles screen swap
+  } catch(e){
     err.classList.add("show");
     document.getElementById("pwd-input").value = "";
     document.getElementById("pwd-input").focus();
@@ -355,21 +363,33 @@ function doLogin(){
 }
 
 function doLogout(){
-  sessionStorage.removeItem(AUTH_KEY);
-  location.reload();
+  auth.signOut(); // onAuthStateChanged handles screen swap
 }
 
 // ═══════════════════════════════════════════════════
 // FIREBASE REST
 // ═══════════════════════════════════════════════════
-async function fbGet(p){ const r=await fetch(DB+p+".json"); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
-async function fbPut(p,d){ const r=await fetch(DB+p+".json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
-async function fbPatch(p,d){ const r=await fetch(DB+p+".json",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
-async function fbDelete(p){ const r=await fetch(DB+p+".json",{method:"DELETE"}); if(!r.ok)throw new Error("HTTP "+r.status) }
+async function fbUrl(p){
+  const u = auth.currentUser;
+  const t = u ? await u.getIdToken() : null;
+  return DB + p + ".json" + (t ? "?auth=" + t : "");
+}
+async function fbGet(p){ const r=await fetch(await fbUrl(p)); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
+async function fbPut(p,d){ const r=await fetch(await fbUrl(p),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
+async function fbDelete(p){ const r=await fetch(await fbUrl(p),{method:"DELETE"}); if(!r.ok)throw new Error("HTTP "+r.status) }
 
 // Sessions run in Nigeria — compute "today" in Africa/Lagos, not the device's UTC day.
 // en-CA locale formats as YYYY-MM-DD, keeping the existing session-key format intact.
 function todayLagos(){ return new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}) }
+
+// Epoch-ms bounds of a Lagos calendar day (WAT is fixed UTC+1, no DST).
+// Rules compare `now` against these to decide if anonymous tasters may read/submit.
+function lagosDayBounds(isoDate){
+  return {
+    activeFrom: Date.parse(isoDate + "T00:00:00+01:00"),
+    activeUntil: Date.parse(isoDate + "T23:59:59.999+01:00")
+  };
+}
 
 // ═══════════════════════════════════════════════════
 // NAV
@@ -448,7 +468,8 @@ async function createSession(){
   try{
     const existing = await fbGet("/"+key);
     if(existing){ msg("cs-msg","A session for "+date+" already exists. Open it from All Sessions.","amber"); return }
-    await fbPut("/"+key,{ date, name: name||date, notes, submissions:{} });
+    const {activeFrom, activeUntil} = lagosDayBounds(date);
+    await fbPut("/"+key,{ date, name: name||date, notes, activeFrom, activeUntil, submissions:{} });
     msg("cs-msg","Session created for "+date+"! Share the taster form with your inspectors.","green");
     document.getElementById("cs-name").value="";
     document.getElementById("cs-notes").value="";
@@ -618,16 +639,27 @@ function showChangePassword(){
   f.style.display = f.style.display==="none" ? "block" : "none";
 }
 
-function changePassword(){
+async function changePassword(){
+  const cur = document.getElementById("cur-pwd").value;
   const np = document.getElementById("new-pwd").value;
   const cp = document.getElementById("confirm-pwd").value;
+  if(!cur){ msg("pwd-msg","Enter your current password.","amber"); return }
   if(!np){ msg("pwd-msg","Enter a new password.","amber"); return }
-  if(np !== cp){ msg("pwd-msg","Passwords do not match.","red"); return }
-  if(np.length < 6){ msg("pwd-msg","Password must be at least 6 characters.","amber"); return }
-  localStorage.setItem(PWD_KEY, np);
-  msg("pwd-msg","Password updated. You'll use the new password next time you log in.","green");
-  document.getElementById("new-pwd").value="";
-  document.getElementById("confirm-pwd").value="";
+  if(np !== cp){ msg("pwd-msg","New passwords do not match.","red"); return }
+  if(np.length < 6){ msg("pwd-msg","New password must be at least 6 characters.","amber"); return }
+  const user = auth.currentUser;
+  if(!user){ msg("pwd-msg","Not signed in.","red"); return }
+  try{
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, cur);
+    await user.reauthenticateWithCredential(cred);
+    await user.updatePassword(np);
+    msg("pwd-msg","Password updated.","green");
+    document.getElementById("cur-pwd").value="";
+    document.getElementById("new-pwd").value="";
+    document.getElementById("confirm-pwd").value="";
+  } catch(e){
+    msg("pwd-msg","Could not update password: "+(e.message||e.code||"unknown error"),"red");
+  }
 }
 
 async function testConnection(){
@@ -666,12 +698,17 @@ function msg(id,txt,cls){
 // ═══════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════
-if(sessionStorage.getItem(AUTH_KEY)==="1"){
-  document.getElementById("login-screen").style.display="none";
-  document.getElementById("app").style.display="block";
-  initApp();
-}
-document.getElementById("pwd-input").addEventListener("keydown",e=>{ if(e.key==="Enter")doLogin() });
+auth.onAuthStateChanged(user => {
+  if(user){
+    document.getElementById("login-screen").style.display="none";
+    document.getElementById("app").style.display="block";
+    document.getElementById("admin-badge").textContent = user.email;
+    initApp();
+  } else {
+    document.getElementById("login-screen").style.display="";
+    document.getElementById("app").style.display="";
+  }
+});
 </script>
 </body>
 </html>
