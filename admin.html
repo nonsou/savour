@@ -670,7 +670,7 @@ function buildCategoryRow(id, c){
   const subHtml = c.deleted ? '<p>Soft-deleted — restore to use again</p>' : '<p>Click name to rename</p>';
   const actionBtn = c.deleted
     ? `<button class="btn sm pri" onclick="restoreCategory('${id}')">Restore</button>`
-    : `<button class="btn sm danger" onclick="deleteCategory('${id}','${escapeHtml(c.name).replace(/'/g,"\\'")}')">Delete</button>`;
+    : `<button class="btn sm danger" onclick="deleteCategory('${id}')">Delete</button>`;
   div.innerHTML = `
     <div class="session-info" style="flex:1">
       ${nameHtml}
@@ -706,7 +706,7 @@ function startCategoryRename(id){
   if(!h4 || h4.dataset.editing === "1") return;
   h4.dataset.editing = "1";
   const current = c.name || "";
-  h4.innerHTML = `<input type="text" id="cat-edit-${id}" value="${escapeHtml(current)}" style="width:100%;padding:4px 8px;font-size:14px" onblur="finishCategoryRename('${id}')" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${escapeHtml(current).replace(/'/g,"\\'")}';this.blur()}">`;
+  h4.innerHTML = `<input type="text" id="cat-edit-${id}" value="${escapeHtml(current)}" data-original="${escapeHtml(current)}" style="width:100%;padding:4px 8px;font-size:14px" onblur="finishCategoryRename('${id}')" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=this.dataset.original;this.blur()}">`;
   const input = document.getElementById("cat-edit-"+id);
   input.focus(); input.select();
 }
@@ -740,8 +740,10 @@ async function finishCategoryRename(id){
   }
 }
 
-async function deleteCategory(id, name){
-  if(!confirm("Delete category \""+name+"\"? Vendors already in this category will keep their assignment, but you won't be able to assign new vendors to it.")) return;
+async function deleteCategory(id){
+  const c = catCache[id];
+  if(!c) return;
+  if(!confirm("Delete category \""+c.name+"\"? Vendors already in this category will keep their assignment, but you won't be able to assign new vendors to it.")) return;
   try{
     await fbPatch("/categories/"+id, { deleted: true });
     loadCategories();
@@ -872,7 +874,7 @@ function buildVendorRow(id, v){
   const actions = v.deleted
     ? `<button class="btn sm pri" onclick="restoreVendor('${id}')">Restore</button>`
     : `<button class="btn sm" onclick="startVendorEdit('${id}')">Edit</button>
-       <button class="btn sm danger" onclick="deleteVendor('${id}','${escapeHtml(v.businessName).replace(/'/g,"\\'")}')">Delete</button>`;
+       <button class="btn sm danger" onclick="deleteVendor('${id}')">Delete</button>`;
   div.innerHTML = `
     <div class="session-info" style="flex:1">
       <h4>${escapeHtml(v.businessName)} <span style="font-weight:400;color:var(--text2)">— ${escapeHtml(v.name)}</span>${deletedTag}</h4>
@@ -965,8 +967,10 @@ async function saveVendorEdit(id){
   }catch(e){ alert("Error: "+e.message) }
 }
 
-async function deleteVendor(id, label){
-  if(!confirm("Delete vendor \""+label+"\"? Existing reports keep their data; the vendor just won't appear in new sessions.")) return;
+async function deleteVendor(id){
+  const v = venCache[id];
+  if(!v) return;
+  if(!confirm("Delete vendor \""+v.businessName+"\"? Existing reports keep their data; the vendor just won't appear in new sessions.")) return;
   try{
     await fbPatch("/vendors/"+id, { deleted: true });
     loadVendors();
