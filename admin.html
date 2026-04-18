@@ -184,6 +184,9 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
         <div class="nav-item" onclick="showPanel('categories')">
           <span class="nav-icon">&#127991;</span> Categories
         </div>
+        <div class="nav-item" onclick="showPanel('vendors')">
+          <span class="nav-icon">&#127828;</span> Vendors
+        </div>
       </div>
       <div class="nav-section">
         <div class="nav-label">Reports</div>
@@ -270,6 +273,41 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
         <div class="card">
           <div class="card-t">All categories <span id="cat-count" class="badge blue">—</span></div>
           <div id="cat-list"><div class="loading-state">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- ── Vendors ── -->
+      <div class="panel" id="panel-vendors">
+        <div class="page-title">Vendors</div>
+        <div class="page-sub">Manage the vendors that appear in the taster form</div>
+        <div class="card" id="vendor-add-card">
+          <div class="card-t">Add a new vendor</div>
+          <div id="vendor-add-form">
+            <div class="row2">
+              <div class="field">
+                <label class="lbl">Vendor name</label>
+                <input type="text" id="ven-name" placeholder="e.g. Mama Nkechi">
+              </div>
+              <div class="field">
+                <label class="lbl">Business name</label>
+                <input type="text" id="ven-business" placeholder="e.g. Nkechi's Suya Spot">
+              </div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label class="lbl">Category</label>
+                <select id="ven-category"><option value="">— Select category —</option></select>
+              </div>
+              <div class="field" style="display:flex;align-items:flex-end">
+                <button class="btn pri full" id="ven-add-btn" onclick="addVendor()">Add vendor</button>
+              </div>
+            </div>
+            <div id="ven-msg" class="msg"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-t">All vendors <span id="ven-count" class="badge blue">—</span></div>
+          <div id="ven-list"><div class="loading-state">Loading...</div></div>
         </div>
       </div>
 
@@ -434,6 +472,7 @@ function showPanel(name){
   if(name==="dashboard") loadDashboard();
   if(name==="sessions") loadAllSessions();
   if(name==="categories") loadCategories();
+  if(name==="vendors") loadVendors();
   if(name==="reports") loadReportSelector();
   if(name==="settings"){ document.getElementById("db-url-display").textContent = DB; }
 }
@@ -651,6 +690,204 @@ async function deleteCategory(id, name){
   try{
     await fbPatch("/categories/"+id, { deleted: true });
     loadCategories();
+  }catch(e){ alert("Error: "+e.message) }
+}
+
+// ═══════════════════════════════════════════════════
+// VENDORS
+// ═══════════════════════════════════════════════════
+let venCache = {};
+
+async function loadVendors(){
+  const list = document.getElementById("ven-list");
+  list.innerHTML = '<div class="loading-state">Loading...</div>';
+  try{
+    const [vData, cData] = await Promise.all([fbGet("/vendors"), fbGet("/categories")]);
+    venCache = vData || {};
+    catCache = cData || {};
+    renderVendorAddForm();
+    const active = Object.entries(venCache).filter(([id,v])=>v && !v.deleted);
+    document.getElementById("ven-count").textContent = active.length;
+    if(active.length === 0){
+      list.innerHTML = '<div class="loading-state">No vendors yet.</div>';
+      return;
+    }
+    active.sort((a,b)=>(a[1].businessName||"").localeCompare(b[1].businessName||""));
+    list.innerHTML = "";
+    active.forEach(([id,v])=>list.appendChild(buildVendorRow(id, v)));
+  }catch(e){
+    list.innerHTML = '<div class="loading-state" style="color:var(--red-text)">Error: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+function activeCategories(){
+  return Object.entries(catCache).filter(([id,c])=>c && !c.deleted)
+    .sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||""));
+}
+
+function renderVendorAddForm(){
+  const cats = activeCategories();
+  const card = document.getElementById("vendor-add-card");
+  if(cats.length === 0){
+    card.innerHTML = `
+      <div class="card-t">Add a new vendor</div>
+      <div class="loading-state" style="text-align:left;padding:1rem 0">
+        You need at least one category before you can add vendors.
+        <button class="btn sm pri" style="margin-left:8px" onclick="showPanel('categories')">Create a category</button>
+      </div>`;
+    return;
+  }
+  // form may have been replaced by empty state — restore it
+  if(!document.getElementById("ven-name")){
+    card.innerHTML = `
+      <div class="card-t">Add a new vendor</div>
+      <div id="vendor-add-form">
+        <div class="row2">
+          <div class="field">
+            <label class="lbl">Vendor name</label>
+            <input type="text" id="ven-name" placeholder="e.g. Mama Nkechi">
+          </div>
+          <div class="field">
+            <label class="lbl">Business name</label>
+            <input type="text" id="ven-business" placeholder="e.g. Nkechi's Suya Spot">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label class="lbl">Category</label>
+            <select id="ven-category"></select>
+          </div>
+          <div class="field" style="display:flex;align-items:flex-end">
+            <button class="btn pri full" id="ven-add-btn" onclick="addVendor()">Add vendor</button>
+          </div>
+        </div>
+        <div id="ven-msg" class="msg"></div>
+      </div>`;
+  }
+  const sel = document.getElementById("ven-category");
+  sel.innerHTML = '<option value="">— Select category —</option>' +
+    cats.map(([id,c])=>`<option value="${id}">${escapeHtml(c.name)}</option>`).join("");
+}
+
+// Build a category dropdown for the EDIT flow. If the vendor's currently
+// assigned category has been soft-deleted, include it (suffixed "(deleted)")
+// so the admin can save without forcibly switching categories.
+function categoryOptionsForEdit(currentId){
+  const cats = activeCategories();
+  let html = cats.map(([id,c])=>`<option value="${id}"${id===currentId?" selected":""}>${escapeHtml(c.name)}</option>`).join("");
+  if(currentId && catCache[currentId] && catCache[currentId].deleted){
+    html += `<option value="${currentId}" selected>${escapeHtml(catCache[currentId].name)} (deleted)</option>`;
+  } else if(currentId && !catCache[currentId]){
+    html += `<option value="${currentId}" selected>(unknown) (deleted)</option>`;
+  }
+  return html;
+}
+
+function buildVendorRow(id, v){
+  const div = document.createElement("div");
+  div.className = "session-row";
+  div.id = "ven-row-"+id;
+  const cat = catCache[v.categoryId];
+  const catLabel = cat ? cat.name + (cat.deleted ? " (deleted)" : "") : "(unknown)";
+  div.innerHTML = `
+    <div class="session-info" style="flex:1">
+      <h4>${escapeHtml(v.businessName)} <span style="font-weight:400;color:var(--text2)">— ${escapeHtml(v.name)}</span></h4>
+      <p>Category: ${escapeHtml(catLabel)}</p>
+    </div>
+    <div class="session-actions">
+      <button class="btn sm" onclick="startVendorEdit('${id}')">Edit</button>
+      <button class="btn sm danger" onclick="deleteVendor('${id}','${escapeHtml(v.businessName).replace(/'/g,"\\'")}')">Delete</button>
+    </div>`;
+  return div;
+}
+
+// Returns the duplicate vendor's id if (businessName, name) collides with an
+// existing non-deleted vendor (case-insensitive, trimmed), excluding excludeId.
+function findDuplicateVendor(businessName, name, excludeId){
+  const b = businessName.trim().toLowerCase();
+  const n = name.trim().toLowerCase();
+  for(const [id,v] of Object.entries(venCache)){
+    if(!v || v.deleted) continue;
+    if(id === excludeId) continue;
+    if((v.businessName||"").trim().toLowerCase() === b &&
+       (v.name||"").trim().toLowerCase() === n) return id;
+  }
+  return null;
+}
+
+async function addVendor(){
+  const name = document.getElementById("ven-name").value.trim();
+  const businessName = document.getElementById("ven-business").value.trim();
+  const categoryId = document.getElementById("ven-category").value;
+  if(!name || !businessName || !categoryId){
+    msg("ven-msg","All three fields are required.","amber"); return;
+  }
+  if(findDuplicateVendor(businessName, name, null)){
+    if(!confirm("A vendor matching \""+businessName+" — "+name+"\" already exists. Add anyway?")) return;
+  }
+  const btn = document.getElementById("ven-add-btn");
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Adding...';
+  try{
+    const id = "v_" + Date.now();
+    await fbPut("/vendors/"+id, { name, businessName, categoryId, deleted: false, createdAt: Date.now() });
+    document.getElementById("ven-name").value = "";
+    document.getElementById("ven-business").value = "";
+    document.getElementById("ven-category").value = "";
+    msg("ven-msg","Added \""+businessName+"\".","green");
+    loadVendors();
+  }catch(e){ msg("ven-msg","Error: "+e.message,"red") }
+  finally{ btn.disabled = false; btn.textContent = "Add vendor" }
+}
+
+function startVendorEdit(id){
+  const v = venCache[id];
+  if(!v) return;
+  const row = document.getElementById("ven-row-"+id);
+  if(!row) return;
+  row.innerHTML = `
+    <div style="flex:1;width:100%">
+      <div class="row2">
+        <div class="field">
+          <label class="lbl">Vendor name</label>
+          <input type="text" id="ven-edit-name-${id}" value="${escapeHtml(v.name)}">
+        </div>
+        <div class="field">
+          <label class="lbl">Business name</label>
+          <input type="text" id="ven-edit-business-${id}" value="${escapeHtml(v.businessName)}">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label class="lbl">Category</label>
+          <select id="ven-edit-cat-${id}">${categoryOptionsForEdit(v.categoryId)}</select>
+        </div>
+        <div class="field" style="display:flex;align-items:flex-end;gap:8px">
+          <button class="btn pri sm" onclick="saveVendorEdit('${id}')">Save</button>
+          <button class="btn sm" onclick="loadVendors()">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function saveVendorEdit(id){
+  const name = document.getElementById("ven-edit-name-"+id).value.trim();
+  const businessName = document.getElementById("ven-edit-business-"+id).value.trim();
+  const categoryId = document.getElementById("ven-edit-cat-"+id).value;
+  if(!name || !businessName || !categoryId){ alert("All three fields are required."); return }
+  if(findDuplicateVendor(businessName, name, id)){
+    if(!confirm("A vendor matching \""+businessName+" — "+name+"\" already exists. Add anyway?")) return;
+  }
+  try{
+    await fbPatch("/vendors/"+id, { name, businessName, categoryId });
+    loadVendors();
+  }catch(e){ alert("Error: "+e.message) }
+}
+
+async function deleteVendor(id, label){
+  if(!confirm("Delete vendor \""+label+"\"? Existing reports keep their data; the vendor just won't appear in new sessions.")) return;
+  try{
+    await fbPatch("/vendors/"+id, { deleted: true });
+    loadVendors();
   }catch(e){ alert("Error: "+e.message) }
 }
 
