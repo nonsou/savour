@@ -1049,6 +1049,25 @@ function quickReport(key, name, date){
   }, 100);
 }
 
+// Vendor entries come in two formats:
+//   old (pre-087d813): free-text `name` + `cat` on each vendor entry
+//   new (087d813+):    snapshot fields `vendorId`, `vendorName`, `businessName`, `categoryName`
+// Detect on presence of vendorId. Group key is prefixed per format so entries from
+// different formats never merge, even if the human-visible names look the same.
+function vendorHasPick(v){ return !!(v && (v.vendorId || v.name)); }
+function vendorDisplay(v){
+  if(v.vendorId) return escapeHtml(v.businessName||"") + " — " + escapeHtml(v.vendorName||"");
+  return escapeHtml(v.name||"");
+}
+function vendorCategory(v){
+  if(v.vendorId) return escapeHtml(v.categoryName||"");
+  return escapeHtml(v.cat||"");
+}
+function vendorGroupKey(v){
+  if(v.vendorId) return "id:"+v.vendorId;
+  return "nm:"+(v.name||"").trim().toLowerCase();
+}
+
 function buildReport(session){
   const subs = Object.values(session.submissions||{});
   const sf = ["taste","aroma","appear","hygiene","environ","storage","safety"];
@@ -1057,12 +1076,17 @@ function buildReport(session){
 
   // Tasters
   h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Tasters who submitted</div><table class="rtable"><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Time submitted</th><th>Vendors assessed</th></tr></thead><tbody>`;
-  subs.forEach((s,i)=>{ h+=`<tr><td>${i+1}</td><td><strong>${s.taster}</strong></td><td>${s.role||"—"}</td><td>${s.time}</td><td>${(s.vendors||[]).filter(v=>v.name).length}</td></tr>` });
+  subs.forEach((s,i)=>{ h+=`<tr><td>${i+1}</td><td><strong>${s.taster}</strong></td><td>${s.role||"—"}</td><td>${s.time}</td><td>${(s.vendors||[]).filter(vendorHasPick).length}</td></tr>` });
   h+=`</tbody></table></div>`;
 
-  // Vendor map
+  // Vendor map — grouped by format-prefixed key so old and new never merge.
   const vmap={};
-  subs.forEach(sub=>{ (sub.vendors||[]).forEach(v=>{ if(!v.name)return; const k=v.name.trim().toLowerCase(); if(!vmap[k])vmap[k]={name:v.name,cat:v.cat,entries:[]}; vmap[k].entries.push({taster:sub.taster,...v}) }) });
+  subs.forEach(sub=>{ (sub.vendors||[]).forEach(v=>{
+    if(!vendorHasPick(v)) return;
+    const k = vendorGroupKey(v);
+    if(!vmap[k]) vmap[k] = { display: vendorDisplay(v), cat: vendorCategory(v), entries: [] };
+    vmap[k].entries.push({taster:sub.taster, ...v, _display: vendorDisplay(v)});
+  }) });
 
   // Section 3
   h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 3 — Vendor assessment</div><table class="rtable"><thead><tr><th>Vendor</th><th>Cat.</th><th>Taster</th><th>Attend.</th><th>Taste</th><th>Aroma</th><th>Appear.</th><th>Hygiene</th><th>Environ.</th><th>Storage</th><th>Safety</th><th>Total</th></tr></thead><tbody>`;
@@ -1076,7 +1100,7 @@ function buildReport(session){
     vd.entries.forEach((e,ei)=>{
       const tot=sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
       const hasN=sf.some(f=>!isNaN(parseFloat(e[f])));
-      h+=`<tr>`;if(ei===0)h+=`<td rowspan="${vd.entries.length+1}" style="font-weight:600">${sn++}. ${vd.name}</td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
+      h+=`<tr>`;if(ei===0)h+=`<td rowspan="${vd.entries.length+1}" style="font-weight:600">${sn++}. ${vd.display}</td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
       h+=`<td>${e.taster}</td><td>${e.att}</td><td>${e.taste}</td><td>${e.aroma}</td><td>${e.appear}</td><td>${e.hygiene}</td><td>${e.environ}</td><td>${e.storage}</td><td>${e.safety}</td><td>${hasN?tot+"/35 · "+Math.round(tot/35*100)+"%":"—"}</td></tr>`;
     });
     h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td>${sf.map(f=>`<td><strong>${avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
@@ -1085,7 +1109,7 @@ function buildReport(session){
 
   // Section 4
   h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 4 — Feedback &amp; observations</div><table class="rtable"><thead><tr><th>Vendor</th><th>Taster</th><th>Sampled product</th><th>Customer feedback</th><th>Observations</th><th>Follow-up?</th><th>Prev. resolved?</th></tr></thead><tbody>`;
-  Object.values(vmap).forEach(vd=>{ vd.entries.forEach(e=>{ h+=`<tr><td><strong>${e.name}</strong></td><td>${e.taster}</td><td>${e.sample||"—"}</td><td>${e.cust||"—"}</td><td>${e.obs||"—"}</td><td>${e.fu}</td><td>${e.pi}</td></tr>` }) });
+  Object.values(vmap).forEach(vd=>{ vd.entries.forEach(e=>{ h+=`<tr><td><strong>${e._display}</strong></td><td>${e.taster}</td><td>${e.sample||"—"}</td><td>${e.cust||"—"}</td><td>${e.obs||"—"}</td><td>${e.fu}</td><td>${e.pi}</td></tr>` }) });
   h+=`</tbody></table></div>`;
 
   // Section 5 – actions
