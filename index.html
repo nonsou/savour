@@ -37,6 +37,8 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 .att-opt input{width:auto}
 .dash-btn{width:100%;padding:9px;border:1px dashed var(--border2);border-radius:var(--rs);background:none;font-size:13px;color:var(--text2);cursor:pointer;font-family:inherit;margin-top:10px}
 .dash-btn:hover{background:var(--bg2)}
+.vremove{margin-left:auto;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:4px 10px;border-radius:var(--rs);font-family:inherit;line-height:1}
+.vremove:hover{background:var(--red-bg);color:var(--red-text)}
 .sbar{background:var(--blue-bg);border-radius:var(--rs);padding:12px 16px;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .yn-row{display:flex;align-items:center;gap:12px;margin-top:6px;flex-wrap:wrap}
 .yn-opt{display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer}
@@ -292,6 +294,7 @@ function addVendor(){
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <div style="width:26px;height:26px;border-radius:50%;background:var(--blue-bg);color:var(--blue-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">${i}</div>
       <strong>Vendor ${i}</strong>
+      <button type="button" class="vremove" onclick="removeVendor(${i})" title="Remove this vendor">&times; Remove</button>
     </div>
     <div class="field" style="margin-bottom:10px">
       <label class="lbl">Vendor</label>
@@ -332,6 +335,62 @@ function addVendor(){
       <div><label class="lbl">Prev. issue resolved?</label><div class="yn-row"><label class="yn-opt"><input type="radio" name="pi${i}" value="Yes"> Yes</label><label class="yn-opt"><input type="radio" name="pi${i}" value="No"> No</label><label class="yn-opt"><input type="radio" name="pi${i}" value="N/A"> N/A</label></div></div>
     </div>`;
   fl.appendChild(fd);
+  updateRemoveVisibility();
+}
+
+function captureBlock(i){
+  const getR = name => document.querySelector('input[name="'+name+i+'"]:checked')?.value || "";
+  const scores = [];
+  for(let j=0;j<7;j++){
+    const el = document.getElementById("vs"+i+j);
+    scores.push(el ? el.value : "");
+  }
+  return {
+    vendorId: document.getElementById("vp"+i)?.value || "",
+    att: getR("va"),
+    scores,
+    fs: document.getElementById("fs"+i)?.value || "",
+    fc: document.getElementById("fc"+i)?.value || "",
+    fo: document.getElementById("fo"+i)?.value || "",
+    fu: getR("fu"),
+    pi: getR("pi"),
+  };
+}
+
+function restoreBlock(i, s){
+  const vp = document.getElementById("vp"+i);
+  if(vp && s.vendorId){ vp.value = s.vendorId; onVendorPick(i); }
+  if(s.att){
+    const r = document.querySelector('input[name="va'+i+'"][value="'+s.att+'"]');
+    if(r){ r.checked = true; updateAttendance(i); }
+  }
+  for(let j=0;j<7;j++){
+    const el = document.getElementById("vs"+i+j);
+    if(el && s.scores[j]) el.value = s.scores[j];
+  }
+  calcT(i);
+  const fs = document.getElementById("fs"+i); if(fs) fs.value = s.fs;
+  const fc = document.getElementById("fc"+i); if(fc) fc.value = s.fc;
+  const fo = document.getElementById("fo"+i); if(fo) fo.value = s.fo;
+  if(s.fu){ const r = document.querySelector('input[name="fu'+i+'"][value="'+s.fu+'"]'); if(r) r.checked = true; }
+  if(s.pi){ const r = document.querySelector('input[name="pi'+i+'"][value="'+s.pi+'"]'); if(r) r.checked = true; }
+}
+
+function removeVendor(i){
+  if(vc <= 1) return;
+  // Capture state of all blocks except the one being removed
+  const keep = [];
+  for(let j=1;j<=vc;j++){ if(j!==i) keep.push(captureBlock(j)); }
+  // Wipe and rebuild sequentially
+  document.getElementById("vlist").innerHTML = "";
+  document.getElementById("flist").innerHTML = "";
+  vc = 0;
+  for(let k=0;k<keep.length;k++){ addVendor(); restoreBlock(k+1, keep[k]); }
+  updateRemoveVisibility();
+}
+
+function updateRemoveVisibility(){
+  document.querySelectorAll("#vlist .vremove").forEach(b=>{ b.style.display = vc <= 1 ? "none" : ""; });
 }
 
 function onVendorPick(i){
@@ -511,24 +570,17 @@ async function submitEntry(){
 
 // ── Reset for next taster ────────────────────────────
 function resetForNextTaster(){
-  // Clear taster name & role only — keep vendor structure in place
   document.getElementById("tname").value="";
   document.getElementById("trole").value="";
-  // Clear all radio selections
-  document.querySelectorAll('input[type=radio]').forEach(r=>r.checked=false);
-  // Clear all text inputs inside vendor/feedback blocks
-  document.querySelectorAll("#vlist input[type=text],#flist input[type=text],#flist textarea,#alist input[type=text],#alist input[type=date]").forEach(i=>i.value="");
-  // Clear score inputs
-  document.querySelectorAll(".score-grid select").forEach(s=>s.value="");
-  // Reset vendor pickers, totals, category readouts, feedback headers, visibility
-  for(let i=1;i<=vc;i++){
-    const sel = document.getElementById("vp"+i);
-    if(sel) sel.value = "";
-    onVendorPick(i);
-    document.getElementById("vt"+i).textContent="Total: — / 35";
-    updateAttendance(i);
-  }
-  // Clear submit msg
+  // Wipe and rebuild fresh 3 vendor blocks (matching initial load)
+  document.getElementById("vlist").innerHTML = "";
+  document.getElementById("flist").innerHTML = "";
+  vc = 0;
+  addVendor(); addVendor(); addVendor();
+  // Clear action-items list and rebuild one fresh block (matching initial load)
+  document.getElementById("alist").innerHTML = "";
+  ac = 0;
+  addAction();
   msg("submit-msg","","");
   refreshCount();
   show("screen-form");
