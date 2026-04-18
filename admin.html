@@ -180,6 +180,12 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
         </div>
       </div>
       <div class="nav-section">
+        <div class="nav-label">Manage</div>
+        <div class="nav-item" onclick="showPanel('categories')">
+          <span class="nav-icon">&#127991;</span> Categories
+        </div>
+      </div>
+      <div class="nav-section">
         <div class="nav-label">Reports</div>
         <div class="nav-item" onclick="showPanel('reports')">
           <span class="nav-icon">&#128202;</span> Generate report
@@ -241,6 +247,29 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
         <div class="card">
           <div class="card-t">Sessions <span id="sessions-count" class="badge blue">—</span></div>
           <div id="all-sessions-list"><div class="loading-state">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- ── Categories ── -->
+      <div class="panel" id="panel-categories">
+        <div class="page-title">Categories</div>
+        <div class="page-sub">Group vendors by type (e.g. Suya, Drinks, Pastries)</div>
+        <div class="card">
+          <div class="card-t">Add a new category</div>
+          <div class="row2">
+            <div class="field">
+              <label class="lbl">Category name</label>
+              <input type="text" id="cat-name" placeholder="e.g. Suya" onkeydown="if(event.key==='Enter')addCategory()">
+            </div>
+            <div class="field" style="display:flex;align-items:flex-end">
+              <button class="btn pri full" id="cat-add-btn" onclick="addCategory()">Add category</button>
+            </div>
+          </div>
+          <div id="cat-msg" class="msg"></div>
+        </div>
+        <div class="card">
+          <div class="card-t">All categories <span id="cat-count" class="badge blue">—</span></div>
+          <div id="cat-list"><div class="loading-state">Loading...</div></div>
         </div>
       </div>
 
@@ -376,6 +405,7 @@ async function fbUrl(p){
 }
 async function fbGet(p){ const r=await fetch(await fbUrl(p)); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
 async function fbPut(p,d){ const r=await fetch(await fbUrl(p),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
+async function fbPatch(p,d){ const r=await fetch(await fbUrl(p),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
 async function fbDelete(p){ const r=await fetch(await fbUrl(p),{method:"DELETE"}); if(!r.ok)throw new Error("HTTP "+r.status) }
 
 // Sessions run in Nigeria — compute "today" in Africa/Lagos, not the device's UTC day.
@@ -403,6 +433,7 @@ function showPanel(name){
   });
   if(name==="dashboard") loadDashboard();
   if(name==="sessions") loadAllSessions();
+  if(name==="categories") loadCategories();
   if(name==="reports") loadReportSelector();
   if(name==="settings"){ document.getElementById("db-url-display").textContent = DB; }
 }
@@ -517,6 +548,109 @@ async function deleteSession(key, name){
     await fbDelete("/"+key);
     loadAllSessions();
     loadDashboard();
+  }catch(e){ alert("Error: "+e.message) }
+}
+
+// ═══════════════════════════════════════════════════
+// CATEGORIES
+// ═══════════════════════════════════════════════════
+let catCache = {};
+
+function escapeHtml(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+
+async function loadCategories(){
+  const list = document.getElementById("cat-list");
+  list.innerHTML = '<div class="loading-state">Loading...</div>';
+  try{
+    const data = await fbGet("/categories");
+    catCache = data || {};
+    const active = Object.entries(catCache).filter(([id,c])=>c && !c.deleted);
+    document.getElementById("cat-count").textContent = active.length;
+    if(active.length === 0){
+      list.innerHTML = '<div class="loading-state">No categories yet. Add your first one above.</div>';
+      return;
+    }
+    active.sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||""));
+    list.innerHTML = "";
+    active.forEach(([id,c])=>list.appendChild(buildCategoryRow(id, c)));
+  }catch(e){
+    list.innerHTML = '<div class="loading-state" style="color:var(--red-text)">Error: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+function buildCategoryRow(id, c){
+  const div = document.createElement("div");
+  div.className = "session-row";
+  div.id = "cat-row-"+id;
+  div.innerHTML = `
+    <div class="session-info" style="flex:1">
+      <h4 id="cat-name-${id}" style="cursor:pointer" title="Click to rename" onclick="startCategoryRename('${id}')">${escapeHtml(c.name)}</h4>
+      <p>Click name to rename</p>
+    </div>
+    <div class="session-actions">
+      <button class="btn sm danger" onclick="deleteCategory('${id}','${escapeHtml(c.name).replace(/'/g,"\\'")}')">Delete</button>
+    </div>`;
+  return div;
+}
+
+async function addCategory(){
+  const input = document.getElementById("cat-name");
+  const name = input.value.trim();
+  if(!name){ msg("cat-msg","Please enter a category name.","amber"); return }
+  const btn = document.getElementById("cat-add-btn");
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Adding...';
+  try{
+    const id = "c_" + Date.now();
+    await fbPut("/categories/"+id, { name, deleted: false, createdAt: Date.now() });
+    input.value = "";
+    msg("cat-msg","Added \""+name+"\".","green");
+    loadCategories();
+  }catch(e){ msg("cat-msg","Error: "+e.message,"red") }
+  finally{ btn.disabled = false; btn.textContent = "Add category" }
+}
+
+function startCategoryRename(id){
+  const c = catCache[id];
+  if(!c) return;
+  const h4 = document.getElementById("cat-name-"+id);
+  if(!h4 || h4.dataset.editing === "1") return;
+  h4.dataset.editing = "1";
+  const current = c.name || "";
+  h4.innerHTML = `<input type="text" id="cat-edit-${id}" value="${escapeHtml(current)}" style="width:100%;padding:4px 8px;font-size:14px" onblur="finishCategoryRename('${id}')" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${escapeHtml(current).replace(/'/g,"\\'")}';this.blur()}">`;
+  const input = document.getElementById("cat-edit-"+id);
+  input.focus(); input.select();
+}
+
+async function finishCategoryRename(id){
+  const input = document.getElementById("cat-edit-"+id);
+  if(!input) return;
+  const newName = input.value.trim();
+  const old = catCache[id] && catCache[id].name;
+  const h4 = document.getElementById("cat-name-"+id);
+  if(!newName || newName === old){
+    h4.dataset.editing = "";
+    h4.textContent = old || "";
+    return;
+  }
+  try{
+    await fbPatch("/categories/"+id, { name: newName });
+    catCache[id].name = newName;
+    h4.dataset.editing = "";
+    h4.textContent = newName;
+  }catch(e){
+    alert("Error: "+e.message);
+    h4.dataset.editing = "";
+    h4.textContent = old || "";
+  }
+}
+
+async function deleteCategory(id, name){
+  if(!confirm("Delete category \""+name+"\"? Vendors already in this category will keep their assignment, but you won't be able to assign new vendors to it.")) return;
+  try{
+    await fbPatch("/categories/"+id, { deleted: true });
+    loadCategories();
   }catch(e){ alert("Error: "+e.message) }
 }
 
