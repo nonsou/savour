@@ -594,9 +594,22 @@ async function deleteSession(key, name){
 // CATEGORIES
 // ═══════════════════════════════════════════════════
 let catCache = {};
+let showDeletedCats = false;
 
 function escapeHtml(s){
   return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+
+// Returns id of matching non-deleted category (case-insensitive, trimmed)
+// or null. Used to hard-block duplicate Add / Rename / Restore.
+function findDuplicateCategory(name, excludeId){
+  const n = name.trim().toLowerCase();
+  for(const [id,c] of Object.entries(catCache)){
+    if(!c || c.deleted) continue;
+    if(id === excludeId) continue;
+    if((c.name||"").trim().toLowerCase() === n) return id;
+  }
+  return null;
 }
 
 async function loadCategories(){
@@ -605,32 +618,65 @@ async function loadCategories(){
   try{
     const data = await fbGet("/categories");
     catCache = data || {};
-    const active = Object.entries(catCache).filter(([id,c])=>c && !c.deleted);
+    const all = Object.entries(catCache).filter(([id,c])=>!!c);
+    const active = all.filter(([id,c])=>!c.deleted);
+    const deleted = all.filter(([id,c])=>c.deleted);
     document.getElementById("cat-count").textContent = active.length;
-    if(active.length === 0){
+    renderDeletedToggle("cat", deleted.length, showDeletedCats, "toggleDeletedCats");
+    const rows = showDeletedCats ? all : active;
+    if(rows.length === 0){
       list.innerHTML = '<div class="loading-state">No categories yet. Add your first one above.</div>';
       return;
     }
-    active.sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||""));
+    rows.sort((a,b)=>{
+      // active first, then deleted; alpha within each group
+      if((a[1].deleted?1:0) !== (b[1].deleted?1:0)) return (a[1].deleted?1:0) - (b[1].deleted?1:0);
+      return (a[1].name||"").localeCompare(b[1].name||"");
+    });
     list.innerHTML = "";
-    active.forEach(([id,c])=>list.appendChild(buildCategoryRow(id, c)));
+    rows.forEach(([id,c])=>list.appendChild(buildCategoryRow(id, c)));
   }catch(e){
     list.innerHTML = '<div class="loading-state" style="color:var(--red-text)">Error: '+escapeHtml(e.message)+'</div>';
   }
 }
 
+function renderDeletedToggle(prefix, count, isOn, fnName){
+  const card = document.getElementById(prefix+"-list").parentElement;
+  let bar = document.getElementById(prefix+"-toggle-bar");
+  if(count === 0){
+    if(bar) bar.remove();
+    return;
+  }
+  if(!bar){
+    bar = document.createElement("div");
+    bar.id = prefix+"-toggle-bar";
+    bar.style.cssText = "margin:-4px 0 10px";
+    card.insertBefore(bar, document.getElementById(prefix+"-list"));
+  }
+  bar.innerHTML = `<button class="btn sm" onclick="${fnName}()">${isOn?"Hide":"Show"} deleted (${count})</button>`;
+}
+
+function toggleDeletedCats(){ showDeletedCats = !showDeletedCats; loadCategories(); }
+
 function buildCategoryRow(id, c){
   const div = document.createElement("div");
   div.className = "session-row";
   div.id = "cat-row-"+id;
+  if(c.deleted) div.style.opacity = "0.55";
+  const deletedTag = c.deleted ? ' <span style="background:#e5e7eb;color:#6b7280;font-size:11px;padding:2px 6px;border-radius:3px;font-weight:500;margin-left:6px">Deleted</span>' : '';
+  const nameHtml = c.deleted
+    ? `<h4>${escapeHtml(c.name)}${deletedTag}</h4>`
+    : `<h4 id="cat-name-${id}" style="cursor:pointer" title="Click to rename" onclick="startCategoryRename('${id}')">${escapeHtml(c.name)}</h4>`;
+  const subHtml = c.deleted ? '<p>Soft-deleted — restore to use again</p>' : '<p>Click name to rename</p>';
+  const actionBtn = c.deleted
+    ? `<button class="btn sm pri" onclick="restoreCategory('${id}')">Restore</button>`
+    : `<button class="btn sm danger" onclick="deleteCategory('${id}','${escapeHtml(c.name).replace(/'/g,"\\'")}')">Delete</button>`;
   div.innerHTML = `
     <div class="session-info" style="flex:1">
-      <h4 id="cat-name-${id}" style="cursor:pointer" title="Click to rename" onclick="startCategoryRename('${id}')">${escapeHtml(c.name)}</h4>
-      <p>Click name to rename</p>
+      ${nameHtml}
+      ${subHtml}
     </div>
-    <div class="session-actions">
-      <button class="btn sm danger" onclick="deleteCategory('${id}','${escapeHtml(c.name).replace(/'/g,"\\'")}')">Delete</button>
-    </div>`;
+    <div class="session-actions">${actionBtn}</div>`;
   return div;
 }
 
@@ -638,6 +684,9 @@ async function addCategory(){
   const input = document.getElementById("cat-name");
   const name = input.value.trim();
   if(!name){ msg("cat-msg","Please enter a category name.","amber"); return }
+  if(findDuplicateCategory(name, null)){
+    msg("cat-msg","A category called \""+name+"\" already exists.","red"); return;
+  }
   const btn = document.getElementById("cat-add-btn");
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Adding...';
   try{
@@ -652,7 +701,7 @@ async function addCategory(){
 
 function startCategoryRename(id){
   const c = catCache[id];
-  if(!c) return;
+  if(!c || c.deleted) return;
   const h4 = document.getElementById("cat-name-"+id);
   if(!h4 || h4.dataset.editing === "1") return;
   h4.dataset.editing = "1";
@@ -669,6 +718,12 @@ async function finishCategoryRename(id){
   const old = catCache[id] && catCache[id].name;
   const h4 = document.getElementById("cat-name-"+id);
   if(!newName || newName === old){
+    h4.dataset.editing = "";
+    h4.textContent = old || "";
+    return;
+  }
+  if(findDuplicateCategory(newName, id)){
+    alert("A category called \""+newName+"\" already exists.");
     h4.dataset.editing = "";
     h4.textContent = old || "";
     return;
@@ -693,10 +748,24 @@ async function deleteCategory(id, name){
   }catch(e){ alert("Error: "+e.message) }
 }
 
+async function restoreCategory(id){
+  const c = catCache[id];
+  if(!c) return;
+  if(findDuplicateCategory(c.name, id)){
+    alert("Cannot restore — a category called \""+c.name+"\" already exists. Rename or delete the existing one first.");
+    return;
+  }
+  try{
+    await fbPatch("/categories/"+id, { deleted: false });
+    loadCategories();
+  }catch(e){ alert("Error: "+e.message) }
+}
+
 // ═══════════════════════════════════════════════════
 // VENDORS
 // ═══════════════════════════════════════════════════
 let venCache = {};
+let showDeletedVens = false;
 
 async function loadVendors(){
   const list = document.getElementById("ven-list");
@@ -706,19 +775,28 @@ async function loadVendors(){
     venCache = vData || {};
     catCache = cData || {};
     renderVendorAddForm();
-    const active = Object.entries(venCache).filter(([id,v])=>v && !v.deleted);
+    const all = Object.entries(venCache).filter(([id,v])=>!!v);
+    const active = all.filter(([id,v])=>!v.deleted);
+    const deleted = all.filter(([id,v])=>v.deleted);
     document.getElementById("ven-count").textContent = active.length;
-    if(active.length === 0){
+    renderDeletedToggle("ven", deleted.length, showDeletedVens, "toggleDeletedVens");
+    const rows = showDeletedVens ? all : active;
+    if(rows.length === 0){
       list.innerHTML = '<div class="loading-state">No vendors yet.</div>';
       return;
     }
-    active.sort((a,b)=>(a[1].businessName||"").localeCompare(b[1].businessName||""));
+    rows.sort((a,b)=>{
+      if((a[1].deleted?1:0) !== (b[1].deleted?1:0)) return (a[1].deleted?1:0) - (b[1].deleted?1:0);
+      return (a[1].businessName||"").localeCompare(b[1].businessName||"");
+    });
     list.innerHTML = "";
-    active.forEach(([id,v])=>list.appendChild(buildVendorRow(id, v)));
+    rows.forEach(([id,v])=>list.appendChild(buildVendorRow(id, v)));
   }catch(e){
     list.innerHTML = '<div class="loading-state" style="color:var(--red-text)">Error: '+escapeHtml(e.message)+'</div>';
   }
 }
+
+function toggleDeletedVens(){ showDeletedVens = !showDeletedVens; loadVendors(); }
 
 function activeCategories(){
   return Object.entries(catCache).filter(([id,c])=>c && !c.deleted)
@@ -787,17 +865,20 @@ function buildVendorRow(id, v){
   const div = document.createElement("div");
   div.className = "session-row";
   div.id = "ven-row-"+id;
+  if(v.deleted) div.style.opacity = "0.55";
   const cat = catCache[v.categoryId];
   const catLabel = cat ? cat.name + (cat.deleted ? " (deleted)" : "") : "(unknown)";
+  const deletedTag = v.deleted ? ' <span style="background:#e5e7eb;color:#6b7280;font-size:11px;padding:2px 6px;border-radius:3px;font-weight:500;margin-left:6px">Deleted</span>' : '';
+  const actions = v.deleted
+    ? `<button class="btn sm pri" onclick="restoreVendor('${id}')">Restore</button>`
+    : `<button class="btn sm" onclick="startVendorEdit('${id}')">Edit</button>
+       <button class="btn sm danger" onclick="deleteVendor('${id}','${escapeHtml(v.businessName).replace(/'/g,"\\'")}')">Delete</button>`;
   div.innerHTML = `
     <div class="session-info" style="flex:1">
-      <h4>${escapeHtml(v.businessName)} <span style="font-weight:400;color:var(--text2)">— ${escapeHtml(v.name)}</span></h4>
+      <h4>${escapeHtml(v.businessName)} <span style="font-weight:400;color:var(--text2)">— ${escapeHtml(v.name)}</span>${deletedTag}</h4>
       <p>Category: ${escapeHtml(catLabel)}</p>
     </div>
-    <div class="session-actions">
-      <button class="btn sm" onclick="startVendorEdit('${id}')">Edit</button>
-      <button class="btn sm danger" onclick="deleteVendor('${id}','${escapeHtml(v.businessName).replace(/'/g,"\\'")}')">Delete</button>
-    </div>`;
+    <div class="session-actions">${actions}</div>`;
   return div;
 }
 
@@ -823,7 +904,7 @@ async function addVendor(){
     msg("ven-msg","All three fields are required.","amber"); return;
   }
   if(findDuplicateVendor(businessName, name, null)){
-    if(!confirm("A vendor matching \""+businessName+" — "+name+"\" already exists. Add anyway?")) return;
+    msg("ven-msg","A vendor matching \""+businessName+" — "+name+"\" already exists.","red"); return;
   }
   const btn = document.getElementById("ven-add-btn");
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Adding...';
@@ -875,7 +956,8 @@ async function saveVendorEdit(id){
   const categoryId = document.getElementById("ven-edit-cat-"+id).value;
   if(!name || !businessName || !categoryId){ alert("All three fields are required."); return }
   if(findDuplicateVendor(businessName, name, id)){
-    if(!confirm("A vendor matching \""+businessName+" — "+name+"\" already exists. Add anyway?")) return;
+    alert("A vendor matching \""+businessName+" — "+name+"\" already exists.");
+    return;
   }
   try{
     await fbPatch("/vendors/"+id, { name, businessName, categoryId });
@@ -887,6 +969,19 @@ async function deleteVendor(id, label){
   if(!confirm("Delete vendor \""+label+"\"? Existing reports keep their data; the vendor just won't appear in new sessions.")) return;
   try{
     await fbPatch("/vendors/"+id, { deleted: true });
+    loadVendors();
+  }catch(e){ alert("Error: "+e.message) }
+}
+
+async function restoreVendor(id){
+  const v = venCache[id];
+  if(!v) return;
+  if(findDuplicateVendor(v.businessName, v.name, id)){
+    alert("Cannot restore — a vendor matching \""+v.businessName+" — "+v.name+"\" already exists. Rename or delete the existing one first.");
+    return;
+  }
+  try{
+    await fbPatch("/vendors/"+id, { deleted: false });
     loadVendors();
   }catch(e){ alert("Error: "+e.message) }
 }
