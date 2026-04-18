@@ -88,6 +88,18 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     </div>
   </div>
 
+  <!-- Session exists but admin hasn't added any vendors yet -->
+  <div id="screen-no-vendors" style="display:none">
+    <div class="card">
+      <div class="no-session">
+        <div class="no-session-icon" style="opacity:.55">&#127828;</div>
+        <h2>No vendors set up yet</h2>
+        <p>Ask your admin to add some vendors to the system, then refresh.</p>
+        <button class="btn pri" style="margin-top:1.5rem" onclick="refreshVendors()">Refresh</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Genuine network/server failure -->
   <div id="screen-error" style="display:none">
     <div class="card">
@@ -156,6 +168,12 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 const DB = "https://food-sampling-hod-iforum-default-rtdb.firebaseio.com";
 let sessionKey = null;
 let vc = 0, ac = 0;
+let vendorList = [];      // {id, name, businessName, categoryId} — non-deleted only, alpha by businessName
+let categoryLookup = {};  // id → name, includes deleted (so old assignments still resolve)
+
+function escapeHtml(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
 
 async function fbGet(p){ const r=await fetch(DB+p+".json"); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
 async function fbPut(p,d){ const r=await fetch(DB+p+".json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
@@ -165,9 +183,32 @@ async function fbPut(p,d){ const r=await fetch(DB+p+".json",{method:"PUT",header
 function todayLagos(){ return new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}) }
 
 function show(id){
-  ["screen-loading","screen-no-session","screen-error","screen-form","screen-success"].forEach(s=>{
+  ["screen-loading","screen-no-session","screen-no-vendors","screen-error","screen-form","screen-success"].forEach(s=>{
     document.getElementById(s).style.display = s===id ? "block" : "none";
   });
+}
+
+async function loadVendorsAndCategories(){
+  const [vData, cData] = await Promise.all([fbGet("/vendors"), fbGet("/categories")]);
+  categoryLookup = {};
+  if(cData) Object.entries(cData).forEach(([id,c])=>{ if(c) categoryLookup[id] = c.name; });
+  vendorList = [];
+  if(vData) Object.entries(vData).forEach(([id,v])=>{
+    if(v && !v.deleted) vendorList.push({id, name:v.name, businessName:v.businessName, categoryId:v.categoryId});
+  });
+  vendorList.sort((a,b)=>(a.businessName||"").localeCompare(b.businessName||""));
+}
+
+// From the no-vendors empty state. Re-fetch and either build the form or stay put.
+async function refreshVendors(){
+  show("screen-loading");
+  try{
+    await loadVendorsAndCategories();
+    if(vendorList.length === 0){ show("screen-no-vendors"); return; }
+    if(vc === 0){ addVendor(); addVendor(); addVendor(); }
+    if(ac === 0) addAction();
+    show("screen-form");
+  }catch(e){ show("screen-error"); }
 }
 
 function msg(id,txt,cls){
@@ -193,8 +234,14 @@ async function checkTodaySession(){
       return;
     }
 
-    // Session found — load the form
+    // Session found — pull the vendor catalogue before we can render the form
     sessionKey = key;
+    await loadVendorsAndCategories();
+    if(vendorList.length === 0){
+      document.getElementById("hdr-sub").textContent = (session.name || today) + " — " + formatDate(today);
+      show("screen-no-vendors");
+      return;
+    }
     document.getElementById("hdr-sub").textContent = (session.name || today) + " — " + formatDate(today);
     document.getElementById("session-label").textContent = "Session: " + (session.name || today);
     await refreshCount();
@@ -237,6 +284,8 @@ function addVendor(){
   vc++; const i=vc;
   const vl=document.getElementById("vlist"), fl=document.getElementById("flist");
   const opts=`<option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="N/A">N/A</option>`;
+  const venOpts = '<option value="">— Select vendor —</option>' +
+    vendorList.map(v=>`<option value="${escapeHtml(v.id)}">${escapeHtml(v.businessName)} — ${escapeHtml(v.name)}</option>`).join("");
 
   const vd=document.createElement("div"); vd.className="vblock";
   vd.innerHTML=`
@@ -244,9 +293,10 @@ function addVendor(){
       <div style="width:26px;height:26px;border-radius:50%;background:var(--blue-bg);color:var(--blue-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">${i}</div>
       <strong>Vendor ${i}</strong>
     </div>
-    <div class="row2" style="margin-bottom:10px">
-      <div class="field" style="margin:0"><label class="lbl">Vendor name</label><input type="text" id="vn${i}" placeholder="Name" oninput="syncN(${i})"></div>
-      <div class="field" style="margin:0"><label class="lbl">Category</label><input type="text" id="vc${i}" placeholder="Food / Beverage / Other"></div>
+    <div class="field" style="margin-bottom:10px">
+      <label class="lbl">Vendor</label>
+      <select id="vp${i}" onchange="onVendorPick(${i})">${venOpts}</select>
+      <p id="vcat${i}" style="font-size:12px;color:var(--text2);margin-top:4px;min-height:14px"></p>
     </div>
     <label class="lbl">Attendance</label>
     <div class="att-row">
@@ -284,7 +334,21 @@ function addVendor(){
   fl.appendChild(fd);
 }
 
-function syncN(i){ const n=document.getElementById("vn"+i)?.value||"—"; const e=document.getElementById("fn"+i); if(e)e.textContent=n }
+function onVendorPick(i){
+  const sel = document.getElementById("vp"+i);
+  const id = sel ? sel.value : "";
+  const v = id ? vendorList.find(x=>x.id===id) : null;
+  const catEl = document.getElementById("vcat"+i);
+  const fn = document.getElementById("fn"+i);
+  if(!v){
+    if(catEl) catEl.textContent = "";
+    if(fn) fn.textContent = "—";
+    return;
+  }
+  const catName = categoryLookup[v.categoryId] || "—";
+  if(catEl) catEl.textContent = "Category: " + catName;
+  if(fn) fn.textContent = v.businessName + " — " + v.name;
+}
 
 // Absent vendors don't need scores/feedback filled in — hide both blocks so tasters
 // aren't tempted to score a stall that wasn't there. Show them again on Present/unset.
@@ -332,6 +396,33 @@ async function submitEntry(){
   if(!taster){ msg("submit-msg","Please enter your name before submitting.","red"); return }
   if(!sessionKey){ msg("submit-msg","No active session found.","red"); return }
 
+  // Vendor selection is required for every block, regardless of attendance.
+  const noVendor = [];
+  for(let i=1;i<=vc;i++){
+    if(!document.getElementById("vp"+i)?.value) noVendor.push("Vendor "+i);
+  }
+  if(noVendor.length){
+    msg("submit-msg", noVendor.join(", ") + ": please select a vendor.", "red");
+    return;
+  }
+
+  // Same vendor selected as Present in two blocks = duplicate. Present + Absent
+  // is allowed (e.g. a vendor was Absent at first then turned up — second row
+  // captures the actual assessment).
+  const seenPresent = {};
+  for(let i=1;i<=vc;i++){
+    const att = document.querySelector('input[name="va'+i+'"]:checked')?.value;
+    if(att !== "Present") continue;
+    const id = document.getElementById("vp"+i).value;
+    if(seenPresent[id]){
+      const v = vendorList.find(x=>x.id===id);
+      const label = v ? `${v.businessName} — ${v.name}` : "this vendor";
+      msg("submit-msg", `You've selected '${label}' as Present in two vendor blocks. Each vendor should only be assessed once per submission.`, "red");
+      return;
+    }
+    seenPresent[id] = true;
+  }
+
   // Require all 7 scores picked for every Present vendor. Absent vendors are skipped;
   // their hidden fields serialize as "N/A" via the || "N/A" fallback below.
   const fieldNames = ["Taste","Aroma","Appearance","Hygiene","Environment","Storage","Safety"];
@@ -339,14 +430,15 @@ async function submitEntry(){
   for(let i=1;i<=vc;i++){
     const att = document.querySelector('input[name="va'+i+'"]:checked')?.value;
     if(att !== "Present") continue;
-    const vname = (document.getElementById("vn"+i)?.value || "").trim();
+    const vid = document.getElementById("vp"+i).value;
+    const vendor = vendorList.find(x=>x.id===vid);
     const missingFields = [];
     for(let j=0;j<7;j++){
       const raw = (document.getElementById("vs"+i+j)?.value || "").trim();
       if(raw === "") missingFields.push(fieldNames[j]);
     }
     if(missingFields.length){
-      const label = vname ? `Vendor ${i} (${vname})` : `Vendor ${i}`;
+      const label = vendor ? `Vendor ${i} (${vendor.businessName})` : `Vendor ${i}`;
       missing.push(`${label}: missing ${missingFields.join(", ")}`);
     }
   }
@@ -360,9 +452,13 @@ async function submitEntry(){
 
   const vendors=[];
   for(let i=1;i<=vc;i++){
+    const vid = document.getElementById("vp"+i)?.value || "";
+    const v = vendorList.find(x=>x.id===vid);
     vendors.push({
-      name:document.getElementById("vn"+i)?.value||"",
-      cat:document.getElementById("vc"+i)?.value||"",
+      vendorId: vid,
+      vendorName: v ? v.name : "",
+      businessName: v ? v.businessName : "",
+      categoryName: v ? (categoryLookup[v.categoryId] || "") : "",
       att:document.querySelector('input[name="va'+i+'"]:checked')?.value||"—",
       taste:document.getElementById("vs"+i+"0")?.value||"N/A",
       aroma:document.getElementById("vs"+i+"1")?.value||"N/A",
@@ -424,8 +520,11 @@ function resetForNextTaster(){
   document.querySelectorAll("#vlist input[type=text],#flist input[type=text],#flist textarea,#alist input[type=text],#alist input[type=date]").forEach(i=>i.value="");
   // Clear score inputs
   document.querySelectorAll(".score-grid select").forEach(s=>s.value="");
-  // Reset totals + restore scores/feedback visibility (attendance radios were just cleared)
+  // Reset vendor pickers, totals, category readouts, feedback headers, visibility
   for(let i=1;i<=vc;i++){
+    const sel = document.getElementById("vp"+i);
+    if(sel) sel.value = "";
+    onVendorPick(i);
     document.getElementById("vt"+i).textContent="Total: — / 35";
     updateAttendance(i);
   }
