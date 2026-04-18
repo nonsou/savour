@@ -76,13 +76,26 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     </div>
   </div>
 
-  <!-- No session -->
+  <!-- No active session today (expected state, not an error) -->
   <div id="screen-no-session" style="display:none">
     <div class="card">
       <div class="no-session">
-        <div class="no-session-icon">&#128203;</div>
-        <h2 id="no-session-title">No inspection session open today</h2>
-        <p id="no-session-msg">There is no active inspection session for today. Please check back later or contact your administrator.</p>
+        <div class="no-session-icon" style="opacity:.55">&#128197;</div>
+        <h2>No tasting session today</h2>
+        <p>There's no active inspection session right now. Check with your admin, or come back when one is scheduled.</p>
+        <button class="btn pri" style="margin-top:1.5rem" onclick="location.reload()">Refresh</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Genuine network/server failure -->
+  <div id="screen-error" style="display:none">
+    <div class="card">
+      <div class="no-session">
+        <div class="no-session-icon" style="opacity:.6">&#9888;</div>
+        <h2>Could not connect</h2>
+        <p>Unable to reach the server. Please check your internet connection and try again.</p>
+        <button class="btn pri" style="margin-top:1.5rem" onclick="location.reload()">Try again</button>
       </div>
     </div>
   </div>
@@ -152,7 +165,7 @@ async function fbPut(p,d){ const r=await fetch(DB+p+".json",{method:"PUT",header
 function todayLagos(){ return new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}) }
 
 function show(id){
-  ["screen-loading","screen-no-session","screen-form","screen-success"].forEach(s=>{
+  ["screen-loading","screen-no-session","screen-error","screen-form","screen-success"].forEach(s=>{
     document.getElementById(s).style.display = s===id ? "block" : "none";
   });
 }
@@ -174,10 +187,8 @@ async function checkTodaySession(){
     const session = await fbGet("/"+key);
 
     if(!session){
-      // No session exists for today
-      document.getElementById("hdr-sub").textContent = "No active session today";
-      document.getElementById("no-session-title").textContent = "No inspection session open today";
-      document.getElementById("no-session-msg").textContent = "There is no active inspection session for " + formatDate(today) + ". Please contact your administrator.";
+      // Path readable but empty (admin-side / pre-rules-publish state).
+      document.getElementById("hdr-sub").textContent = "No active session";
       show("screen-no-session");
       return;
     }
@@ -192,10 +203,18 @@ async function checkTodaySession(){
     show("screen-form");
 
   }catch(e){
-    document.getElementById("hdr-sub").textContent = "Connection error";
-    document.getElementById("no-session-title").textContent = "Could not connect";
-    document.getElementById("no-session-msg").textContent = "Unable to reach the server. Please check your internet connection and try refreshing the page.";
-    show("screen-no-session");
+    // 401/403 from the security rules = no active session right now (anon
+    // tasters can only read sessions inside their activeFrom/activeUntil
+    // window). Anything else (TypeError from fetch when offline, 5xx, JSON
+    // parse error) is a real connection problem.
+    const m = e && e.message || "";
+    if(m.startsWith("HTTP 401") || m.startsWith("HTTP 403")){
+      document.getElementById("hdr-sub").textContent = "No active session";
+      show("screen-no-session");
+    } else {
+      document.getElementById("hdr-sub").textContent = "Connection error";
+      show("screen-error");
+    }
   }
 }
 
