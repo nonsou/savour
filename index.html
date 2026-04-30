@@ -477,13 +477,24 @@ async function submitEntry(){
   if(!taster){ msg("submit-msg","Please enter your name before submitting.","red"); return }
   if(!sessionKey){ msg("submit-msg","No active session found.","red"); return }
 
-  // Vendor selection is required for every block, regardless of attendance.
-  const noVendor = [];
+  // Per-block prerequisites: vendor first, then attendance. Vendor-missing trumps
+  // attendance-missing for the same block — only one error per block.
+  const blockErrors = [];
   for(let i=1;i<=vc;i++){
-    if(!document.getElementById("vp"+i)?.value) noVendor.push("Vendor "+i);
+    const vid = document.getElementById("vp"+i)?.value || "";
+    if(!vid){
+      blockErrors.push(`Vendor ${i}: please select a vendor`);
+      continue;
+    }
+    const att = document.querySelector('input[name="va'+i+'"]:checked')?.value;
+    if(!att){
+      const v = vendorList.find(x=>x.id===vid);
+      const label = v ? ` (${v.businessName} — ${v.name})` : "";
+      blockErrors.push(`Vendor ${i}${label}: please select attendance`);
+    }
   }
-  if(noVendor.length){
-    msg("submit-msg", noVendor.join(", ") + ": please select a vendor.", "red");
+  if(blockErrors.length){
+    msg("submit-msg", blockErrors.join(". ") + ".", "red");
     return;
   }
 
