@@ -307,7 +307,7 @@ async function refreshCount(){
 function addVendor(){
   vc++; const i=vc;
   const vl=document.getElementById("vlist"), fl=document.getElementById("flist");
-  const opts=`<option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="N/A">N/A</option>`;
+  const opts=`<option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>`;
   const venOpts = '<option value="">— Select vendor —</option>' +
     vendorList.map(v=>`<option value="${escapeHtml(v.id)}">${escapeHtml(v.businessName)} — ${escapeHtml(v.name)}</option>`).join("");
 
@@ -330,7 +330,7 @@ function addVendor(){
       <label class="att-opt"><input type="radio" name="va${i}" value="Absent (no notice)" onchange="updateAttendance(${i})"> Absent (no notice)</label>
     </div>
     <div id="vscores${i}">
-      <label class="lbl" style="margin-top:10px">Scores — pick 1–5 or N/A per criterion</label>
+      <label class="lbl" style="margin-top:10px">Scores — Rate each criterion from 1 to 5</label>
       <div class="score-grid">
         <div><label class="lbl">Taste</label><select id="vs${i}0" onchange="calcT(${i})">${opts}</select></div>
         <div><label class="lbl">Aroma</label><select id="vs${i}1" onchange="calcT(${i})">${opts}</select></div>
@@ -519,12 +519,12 @@ async function submitEntry(){
       if(raw === "") missingFields.push(fieldNames[j]);
     }
     if(missingFields.length){
-      const label = vendor ? `Vendor ${i} (${vendor.businessName})` : `Vendor ${i}`;
-      missing.push(`${label}: missing ${missingFields.join(", ")}`);
+      const label = vendor ? `Vendor ${i} (${vendor.businessName} — ${vendor.name})` : `Vendor ${i}`;
+      missing.push(`${label}: missing scores for ${missingFields.join(", ")}`);
     }
   }
   if(missing.length){
-    msg("submit-msg", "Please complete all score fields for Present vendors — " + missing.join(" · "), "red");
+    msg("submit-msg", missing.join(" · "), "red");
     return;
   }
 
