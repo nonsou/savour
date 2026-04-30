@@ -114,11 +114,12 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 
 .sguide{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1.5rem}
 .sguide-t{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
-.sguide-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sguide-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .sguide-item{padding:10px 12px;border-radius:var(--rs);font-size:13px;line-height:1.35}
 .sguide-item b{font-weight:700;margin-right:6px}
 .sguide-1{background:var(--red-bg);color:var(--red-text)}
-.sguide-23{background:var(--amber-bg);color:var(--amber-text)}
+.sguide-2{background:#fed7aa;color:var(--amber-text)}
+.sguide-3{background:var(--amber-bg);color:var(--amber-text)}
 .sguide-4{background:var(--green-bg);color:var(--green-text)}
 .sguide-5{background:#bbf7d0;color:var(--green-text)}
 
@@ -1086,7 +1087,7 @@ function buildReport(session){
   h+=`<div style="text-align:center;padding:1rem 0 1.5rem"><div style="font-size:22px;font-weight:700;margin-bottom:6px">Food Vendor Inspection Report</div><div style="font-size:14px;color:var(--text2)">${session.name||session.date} &nbsp;&middot;&nbsp; Date: ${session.date} &nbsp;&middot;&nbsp; ${subs.length} taster(s)</div></div>`;
 
   // Scoring guide
-  h+=`<div class="sguide"><div class="sguide-t">Scoring Guide — Rate each criterion from 1 to 5</div><div class="sguide-grid"><div class="sguide-item sguide-1"><b>1</b>Unacceptable / Failed</div><div class="sguide-item sguide-23"><b>2&ndash;3</b>Below / Meets Minimum</div><div class="sguide-item sguide-4"><b>4</b>Good</div><div class="sguide-item sguide-5"><b>5</b>Excellent</div></div></div>`;
+  h+=`<div class="sguide"><div class="sguide-t">Scoring Guide — Rate each criterion from 1 to 5</div><div class="sguide-grid"><div class="sguide-item sguide-1"><b>1</b>Unacceptable / Failed</div><div class="sguide-item sguide-2"><b>2</b>Below minimum</div><div class="sguide-item sguide-3"><b>3</b>Meets minimum</div><div class="sguide-item sguide-4"><b>4</b>Good</div><div class="sguide-item sguide-5"><b>5</b>Excellent</div></div></div>`;
 
   // Tasters
   h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Tasters who submitted</div><table class="rtable"><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Time submitted</th><th>Vendors assessed</th></tr></thead><tbody>`;

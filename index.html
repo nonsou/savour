@@ -42,11 +42,12 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 .sbar{background:var(--blue-bg);border-radius:var(--rs);padding:12px 16px;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .sguide{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1.25rem}
 .sguide-t{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
-.sguide-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sguide-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .sguide-item{padding:10px 12px;border-radius:var(--rs);font-size:13px;line-height:1.35}
 .sguide-item b{font-weight:700;margin-right:6px}
 .sguide-1{background:var(--red-bg);color:var(--red-text)}
-.sguide-23{background:var(--amber-bg);color:var(--amber-text)}
+.sguide-2{background:#fed7aa;color:var(--amber-text)}
+.sguide-3{background:var(--amber-bg);color:var(--amber-text)}
 .sguide-4{background:var(--green-bg);color:var(--green-text)}
 .sguide-5{background:#bbf7d0;color:var(--green-text)}
 @media(max-width:480px){.sguide-grid{grid-template-columns:1fr}}
@@ -146,7 +147,8 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
       <div class="sguide-t">Scoring Guide — Rate each criterion from 1 to 5</div>
       <div class="sguide-grid">
         <div class="sguide-item sguide-1"><b>1</b>Unacceptable / Failed</div>
-        <div class="sguide-item sguide-23"><b>2–3</b>Below / Meets Minimum</div>
+        <div class="sguide-item sguide-2"><b>2</b>Below minimum</div>
+        <div class="sguide-item sguide-3"><b>3</b>Meets minimum</div>
         <div class="sguide-item sguide-4"><b>4</b>Good</div>
         <div class="sguide-item sguide-5"><b>5</b>Excellent</div>
       </div>
