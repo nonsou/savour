@@ -505,7 +505,7 @@ async function submitEntry(){
   }
 
   // Require all 7 scores picked for every Present vendor. Absent vendors are skipped;
-  // their hidden fields serialize as "N/A" via the || "N/A" fallback below.
+  // their hidden fields serialize as "N/A" via the score() helper below.
   const fieldNames = ["Taste","Aroma","Appearance","Hygiene","Environment","Storage","Safety"];
   const missing = [];
   for(let i=1;i<=vc;i++){
@@ -535,19 +535,27 @@ async function submitEntry(){
   for(let i=1;i<=vc;i++){
     const vid = document.getElementById("vp"+i)?.value || "";
     const v = vendorList.find(x=>x.id===vid);
+    const att = document.querySelector('input[name="va'+i+'"]:checked')?.value || "—";
+    // Present vendors: scores are guaranteed 1-5 by the validation above; never fall
+    // back to "N/A" here, otherwise a future validation gap would silently corrupt data.
+    // Absent/unset: score section is hidden, so blank serializes as "N/A" for back-compat.
+    const score = j => {
+      const raw = document.getElementById("vs"+i+j)?.value || "";
+      return att === "Present" ? raw : (raw || "N/A");
+    };
     vendors.push({
       vendorId: vid,
       vendorName: v ? v.name : "",
       businessName: v ? v.businessName : "",
       categoryName: v ? (categoryLookup[v.categoryId] || "") : "",
-      att:document.querySelector('input[name="va'+i+'"]:checked')?.value||"—",
-      taste:document.getElementById("vs"+i+"0")?.value||"N/A",
-      aroma:document.getElementById("vs"+i+"1")?.value||"N/A",
-      appear:document.getElementById("vs"+i+"2")?.value||"N/A",
-      hygiene:document.getElementById("vs"+i+"3")?.value||"N/A",
-      environ:document.getElementById("vs"+i+"4")?.value||"N/A",
-      storage:document.getElementById("vs"+i+"5")?.value||"N/A",
-      safety:document.getElementById("vs"+i+"6")?.value||"N/A",
+      att,
+      taste: score(0),
+      aroma: score(1),
+      appear: score(2),
+      hygiene: score(3),
+      environ: score(4),
+      storage: score(5),
+      safety: score(6),
       sample:document.getElementById("fs"+i)?.value||"",
       cust:document.getElementById("fc"+i)?.value||"",
       obs:document.getElementById("fo"+i)?.value||"",
