@@ -193,7 +193,37 @@ const DB = "https://food-sampling-hod-iforum-default-rtdb.firebaseio.com";
 let sessionKey = null;
 let vc = 0, ac = 0;
 let vendorList = [];      // {id, name, businessName, categoryId} — non-deleted only, alpha by businessName
-let categoryLookup = {};  // id → name, includes deleted (so old assignments still resolve)
+let categoryLookup = {};  // id → { name, criteria }, includes deleted (so old assignments still resolve)
+
+// Score grid metadata. `dbKey` is the abbreviated key written to /sessions submissions
+// (preserved for back-compat with the report and historical data). `catKey` is the full
+// name used inside category.criteria booleans. `label` is what the form shows.
+const CRITERIA = [
+  { dbKey:"taste",   catKey:"taste",       label:"Taste" },
+  { dbKey:"aroma",   catKey:"aroma",       label:"Aroma" },
+  { dbKey:"appear",  catKey:"appearance",  label:"Appearance" },
+  { dbKey:"hygiene", catKey:"hygiene",     label:"Hygiene" },
+  { dbKey:"environ", catKey:"environment", label:"Environment" },
+  { dbKey:"storage", catKey:"storage",     label:"Storage" },
+  { dbKey:"safety",  catKey:"safety",      label:"Safety" }
+];
+
+// Returns the score-cell indexes (0..6) that apply to a vendor's category. Falls back
+// to all 7 when vendor unknown, category missing, criteria missing, or criteria empty
+// (the empty case shouldn't be reachable given C1's "at least one" rule, but we don't
+// want to render a blank score grid if the data is somehow corrupt).
+function applicableCriteriaIndexes(vendorId){
+  const v = vendorList.find(x=>x.id===vendorId);
+  if(!v) return [0,1,2,3,4,5,6];
+  const cat = categoryLookup[v.categoryId];
+  if(!cat || !cat.criteria) return [0,1,2,3,4,5,6];
+  const idxs = CRITERIA.map((c,i)=>cat.criteria[c.catKey] ? i : -1).filter(i=>i>=0);
+  if(idxs.length === 0){
+    console.warn(`Category "${cat.name||v.categoryId}" has no criteria — defaulting to all 7 for vendor ${v.businessName}`);
+    return [0,1,2,3,4,5,6];
+  }
+  return idxs;
+}
 
 function escapeHtml(s){
   return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
@@ -215,7 +245,9 @@ function show(id){
 async function loadVendorsAndCategories(){
   const [vData, cData] = await Promise.all([fbGet("/vendors"), fbGet("/categories")]);
   categoryLookup = {};
-  if(cData) Object.entries(cData).forEach(([id,c])=>{ if(c) categoryLookup[id] = c.name; });
+  if(cData) Object.entries(cData).forEach(([id,c])=>{
+    if(c) categoryLookup[id] = { name: c.name, criteria: c.criteria || null };
+  });
   vendorList = [];
   if(vData) Object.entries(vData).forEach(([id,v])=>{
     if(v && !v.deleted) vendorList.push({id, name:v.name, businessName:v.businessName, categoryId:v.categoryId});
@@ -332,13 +364,7 @@ function addVendor(){
     <div id="vscores${i}">
       <label class="lbl" style="margin-top:10px">Scores — Rate each criterion from 1 to 5</label>
       <div class="score-grid">
-        <div><label class="lbl">Taste</label><select id="vs${i}0" onchange="calcT(${i})">${opts}</select></div>
-        <div><label class="lbl">Aroma</label><select id="vs${i}1" onchange="calcT(${i})">${opts}</select></div>
-        <div><label class="lbl">Appear.</label><select id="vs${i}2" onchange="calcT(${i})">${opts}</select></div>
-        <div><label class="lbl">Hygiene</label><select id="vs${i}3" onchange="calcT(${i})">${opts}</select></div>
-        <div><label class="lbl">Environ.</label><select id="vs${i}4" onchange="calcT(${i})">${opts}</select></div>
-        <div><label class="lbl">Storage</label><select id="vs${i}5" onchange="calcT(${i})">${opts}</select></div>
-        <div><label class="lbl">Safety</label><select id="vs${i}6" onchange="calcT(${i})">${opts}</select></div>
+        ${CRITERIA.map((c,j)=>`<div id="vsc${i}${j}"><label class="lbl">${c.label}</label><select id="vs${i}${j}" onchange="calcT(${i})">${opts}</select></div>`).join("")}
       </div>
       <span class="total-tag" id="vt${i}">Total: — / 35</span>
     </div>`;
@@ -424,11 +450,31 @@ function onVendorPick(i){
   if(!v){
     if(catEl) catEl.textContent = "";
     if(fn) fn.textContent = "—";
+    applyCriteriaVisibility(i, [0,1,2,3,4,5,6]);
+    calcT(i);
     return;
   }
-  const catName = categoryLookup[v.categoryId] || "—";
-  if(catEl) catEl.textContent = "Category: " + catName;
+  const cat = categoryLookup[v.categoryId];
+  if(catEl) catEl.textContent = "Category: " + (cat?.name || "—");
   if(fn) fn.textContent = v.businessName + " — " + v.name;
+  applyCriteriaVisibility(i, applicableCriteriaIndexes(v.id));
+  calcT(i);
+}
+
+// Hide score cells whose criteria don't apply, and clear their values so a stale
+// score from a previously-picked vendor can't slip into the submission.
+function applyCriteriaVisibility(i, idxs){
+  const visible = new Set(idxs);
+  for(let j=0;j<7;j++){
+    const cell = document.getElementById("vsc"+i+j);
+    const sel = document.getElementById("vs"+i+j);
+    if(visible.has(j)){
+      if(cell) cell.style.display = "";
+    } else {
+      if(cell) cell.style.display = "none";
+      if(sel && sel.value) sel.value = "";
+    }
+  }
 }
 
 // Absent vendors don't need scores/feedback filled in — hide both blocks so tasters
@@ -443,15 +489,18 @@ function updateAttendance(i){
 }
 
 function calcT(i){
+  const vid = document.getElementById("vp"+i)?.value || "";
+  const idxs = vid ? applicableCriteriaIndexes(vid) : [0,1,2,3,4,5,6];
   let s=0, c=0;
-  for(let j=0;j<7;j++){
+  idxs.forEach(j=>{
     const raw=(document.getElementById("vs"+i+j)?.value||"").trim();
-    if(raw===""||raw==="N/A") continue;
+    if(raw==="") return;
     const v=parseFloat(raw);
     if(!isNaN(v)){ s+=v; c++; }
-  }
+  });
+  const max = idxs.length * 5;
   const tag=document.getElementById("vt"+i);
-  tag.textContent = c>0 ? "Total: "+s+" / 35" : "Total: — / 35";
+  tag.textContent = c>0 ? "Total: "+s+" / "+max : "Total: — / "+max;
 }
 
 function addAction(){
@@ -515,20 +564,20 @@ async function submitEntry(){
     seenPresent[id] = true;
   }
 
-  // Require all 7 scores picked for every Present vendor. Absent vendors are skipped;
-  // their hidden fields serialize as "N/A" via the score() helper below.
-  const fieldNames = ["Taste","Aroma","Appearance","Hygiene","Environment","Storage","Safety"];
+  // Require every applicable score picked for every Present vendor. Hidden criteria
+  // (those not in the vendor's category) are skipped — only visible blanks are flagged.
   const missing = [];
   for(let i=1;i<=vc;i++){
     const att = document.querySelector('input[name="va'+i+'"]:checked')?.value;
     if(att !== "Present") continue;
     const vid = document.getElementById("vp"+i).value;
     const vendor = vendorList.find(x=>x.id===vid);
+    const idxs = applicableCriteriaIndexes(vid);
     const missingFields = [];
-    for(let j=0;j<7;j++){
+    idxs.forEach(j=>{
       const raw = (document.getElementById("vs"+i+j)?.value || "").trim();
-      if(raw === "") missingFields.push(fieldNames[j]);
-    }
+      if(raw === "") missingFields.push(CRITERIA[j].label);
+    });
     if(missingFields.length){
       const label = vendor ? `Vendor ${i} (${vendor.businessName} — ${vendor.name})` : `Vendor ${i}`;
       missing.push(`${label}: missing scores for ${missingFields.join(", ")}`);
@@ -547,32 +596,31 @@ async function submitEntry(){
     const vid = document.getElementById("vp"+i)?.value || "";
     const v = vendorList.find(x=>x.id===vid);
     const att = document.querySelector('input[name="va'+i+'"]:checked')?.value || "—";
-    // Present vendors: scores are guaranteed 1-5 by the validation above; never fall
-    // back to "N/A" here, otherwise a future validation gap would silently corrupt data.
-    // Absent/unset: score section is hidden, so blank serializes as "N/A" for back-compat.
-    const score = j => {
-      const raw = document.getElementById("vs"+i+j)?.value || "";
-      return att === "Present" ? raw : (raw || "N/A");
-    };
-    vendors.push({
+    const entry = {
       vendorId: vid,
       vendorName: v ? v.name : "",
       businessName: v ? v.businessName : "",
-      categoryName: v ? (categoryLookup[v.categoryId] || "") : "",
-      att,
-      taste: score(0),
-      aroma: score(1),
-      appear: score(2),
-      hygiene: score(3),
-      environ: score(4),
-      storage: score(5),
-      safety: score(6),
-      sample:document.getElementById("fs"+i)?.value||"",
-      cust:document.getElementById("fc"+i)?.value||"",
-      obs:document.getElementById("fo"+i)?.value||"",
-      fu:document.querySelector('input[name="fu'+i+'"]:checked')?.value||"—",
-      pi:document.querySelector('input[name="pi'+i+'"]:checked')?.value||"—"
-    });
+      categoryName: v ? (categoryLookup[v.categoryId]?.name || "") : "",
+      att
+    };
+    // Present: write ONLY the applicable criteria (validation guarantees each is 1-5).
+    // Absent/unset: keep historical shape — all 7 keys, blanks → "N/A".
+    if(att === "Present"){
+      applicableCriteriaIndexes(vid).forEach(j=>{
+        entry[CRITERIA[j].dbKey] = document.getElementById("vs"+i+j)?.value || "";
+      });
+    } else {
+      for(let j=0;j<7;j++){
+        const raw = document.getElementById("vs"+i+j)?.value || "";
+        entry[CRITERIA[j].dbKey] = raw || "N/A";
+      }
+    }
+    entry.sample = document.getElementById("fs"+i)?.value||"";
+    entry.cust   = document.getElementById("fc"+i)?.value||"";
+    entry.obs    = document.getElementById("fo"+i)?.value||"";
+    entry.fu     = document.querySelector('input[name="fu'+i+'"]:checked')?.value||"—";
+    entry.pi     = document.querySelector('input[name="pi'+i+'"]:checked')?.value||"—";
+    vendors.push(entry);
   }
 
   const actions=[];
