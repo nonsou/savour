@@ -695,7 +695,7 @@ function buildSessionRow(key, s, compact){
     ? `<div class="row-approved">Approved by ${escapeHtml(s.approvedBy)} on ${formatApprovedAt(s.approvedAt)}</div>`
     : "";
   const safeName = (s.name||s.date).replace(/'/g,"\\'");
-  const reopenBtn = (status === "approved" && !compact)
+  const reopenBtn = (status === "approved")
     ? `<button class="btn sm" onclick="reopenSession('sessions/${key}','${safeName}')">Reopen</button>`
     : "";
   const div = document.createElement("div");
