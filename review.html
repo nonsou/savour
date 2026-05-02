@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reviewer access</title>
+<style>
+:root{--bg:#fff;--bg2:#f7f7f5;--text:#1a1a1a;--text2:#555;--text3:#999;--border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--blue:#1a5fd4;--blue-bg:#e8f0fd;--blue-text:#1a4ba8;--green:#166534;--green-bg:#dcfce7;--green-text:#14532d;--amber-bg:#fef3c7;--amber-text:#78350f;--red-bg:#fee2e2;--red-text:#991b1b;--r:10px;--rs:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg2);color:var(--text);min-height:100vh}
+.page{max-width:1080px;margin:0 auto;padding:1.5rem 1rem 4rem}
+.hdr{text-align:center;margin-bottom:2rem;padding:1.5rem;background:var(--bg);border-radius:var(--r);border:0.5px solid var(--border)}
+.hdr h1{font-size:22px;font-weight:700}
+.hdr p{font-size:13px;color:var(--text2);margin-top:4px}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:1.25rem 1.5rem;margin-bottom:1.25rem}
+.card-t{font-size:14px;font-weight:600;margin-bottom:1rem;padding-bottom:8px;border-bottom:0.5px solid var(--border)}
+.field{margin-bottom:.9rem}.field:last-child{margin-bottom:0}
+.lbl{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+input[type=text],input[type=tel],input[type=number],input[type=password]{width:100%;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);font-size:14px;color:var(--text);background:var(--bg);font-family:inherit}
+input:focus{outline:none;border-color:var(--blue)}
+.btn{padding:9px 18px;border:0.5px solid var(--border2);border-radius:var(--rs);font-size:14px;cursor:pointer;background:transparent;color:var(--text);font-family:inherit}
+.btn:hover{background:var(--bg2)}
+.btn.pri{background:var(--blue);color:#fff;border-color:transparent;font-weight:500}
+.btn.pri:hover{background:#1550b8}
+.btn.full{width:100%;padding:12px;font-size:15px;font-weight:500}
+.btn.sm{padding:6px 12px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{padding:10px 14px;border-radius:var(--rs);font-size:13px;margin-top:10px;display:none}
+.msg.green{background:var(--green-bg);color:var(--green-text);display:block}
+.msg.red{background:var(--red-bg);color:var(--red-text);display:block}
+.msg.amber{background:var(--amber-bg);color:var(--amber-text);display:block}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.help{font-style:italic;color:var(--text2);font-size:12px;margin-top:14px;text-align:center}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge.grey{background:var(--bg2);color:var(--text2);border:0.5px solid var(--border)}
+
+/* ── Reviewer header bar ── */
+.review-hdr{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.25rem;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);margin-bottom:1.25rem;flex-wrap:wrap}
+.rh-left h2{font-size:16px;font-weight:700;margin-bottom:2px}
+.rh-left p{font-size:12px;color:var(--text2)}
+.rh-right{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.rh-right .who{font-size:13px;color:var(--text2)}
+.rh-right .who strong{color:var(--text);font-weight:600}
+
+/* ── Report (lifted from admin.html, do not edit) ── */
+.rtable{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.rtable th{background:var(--bg2);text-align:left;padding:7px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);border:0.5px solid var(--border)}
+.rtable td{padding:8px 10px;border:0.5px solid var(--border);vertical-align:top}
+.rtable tr:nth-child(even) td{background:var(--bg2)}
+.rcell-mute{color:var(--text3)}
+.report-warn{background:var(--amber-bg);color:var(--amber-text);border-radius:var(--rs);padding:9px 13px;font-size:12px;margin:0 0 12px}
+.sguide{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1.5rem}
+.sguide-t{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
+.sguide-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.sguide-item{padding:10px 12px;border-radius:var(--rs);font-size:13px;line-height:1.35}
+.sguide-item b{font-weight:700;margin-right:6px}
+.sguide-1{background:var(--red-bg);color:var(--red-text)}
+.sguide-2{background:#fed7aa;color:var(--amber-text)}
+.sguide-3{background:var(--amber-bg);color:var(--amber-text)}
+.sguide-4{background:var(--green-bg);color:var(--green-text)}
+.sguide-5{background:#bbf7d0;color:var(--green-text)}
+@media(max-width:480px){.sguide-grid{grid-template-columns:1fr}}
+
+.loading-state{text-align:center;padding:2.5rem;color:var(--text3);font-size:14px}
+.err-overlay{text-align:center;padding:2.5rem 1rem}
+.err-overlay h3{font-size:16px;font-weight:700;margin-bottom:6px}
+.err-overlay p{font-size:13px;color:var(--text2);margin-bottom:14px;max-width:380px;margin-left:auto;margin-right:auto}
+
+.login-card{max-width:420px;margin:0 auto}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Screen 1: Login ── -->
+  <div id="screen-login">
+    <div class="hdr">
+      <h1>Reviewer access</h1>
+      <p>Enter the session code shared by the admin</p>
+    </div>
+    <div class="card login-card">
+      <div class="field">
+        <label class="lbl" for="rev-name">Your name</label>
+        <input type="text" id="rev-name" autocomplete="name" placeholder="e.g. Pat Williams">
+      </div>
+      <div class="field">
+        <label class="lbl" for="rev-code">Session code</label>
+        <input type="tel" id="rev-code" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="6-digit code">
+      </div>
+      <button class="btn pri full" id="rev-go" onclick="attemptLogin()">Continue</button>
+      <div id="rev-msg" class="msg"></div>
+      <div class="help">Don't have a code? Ask the session admin to share one with you.</div>
+    </div>
+  </div>
+
+  <!-- ── Screen 2: Report ── -->
+  <div id="screen-report" style="display:none">
+    <div class="review-hdr">
+      <div class="rh-left">
+        <h2 id="rh-name">—</h2>
+        <p id="rh-date">—</p>
+      </div>
+      <div class="rh-right">
+        <span class="badge grey" id="rh-pill">Pending review</span>
+        <span class="who">Reviewing as: <strong id="rh-who"></strong></span>
+        <button class="btn sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+    <div id="report-output">
+      <div class="loading-state">Loading report…</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// FIREBASE (anonymous — no auth token)
+// ═══════════════════════════════════════════════════
+const DB = "https://food-sampling-hod-iforum-default-rtdb.firebaseio.com";
+async function fbGet(p){ const r=await fetch(DB+p+".json"); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
+
+// In-memory only. Never persisted, never logged, never in URL.
+let reviewerName = "";
+let sessionKey = "";
+let sessionData = null;
+
+// ═══════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════
+function showLoginMsg(text, kind){
+  const el = document.getElementById("rev-msg");
+  el.className = "msg " + (kind||"red");
+  el.textContent = text;
+}
+
+async function attemptLogin(){
+  const nameEl = document.getElementById("rev-name");
+  const codeEl = document.getElementById("rev-code");
+  const name = nameEl.value.trim();
+  const code = codeEl.value.trim();
+  const btn = document.getElementById("rev-go");
+
+  if(!name){ showLoginMsg("Please enter your name."); nameEl.focus(); return }
+  if(!/^[0-9]{6}$/.test(code)){ showLoginMsg("Code must be 6 digits."); codeEl.focus(); return }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Checking…';
+  try{
+    const all = await fbGet("/sessions");
+    const now = Date.now();
+    let matchKey = null, matchData = null;
+    if(all && typeof all === "object"){
+      for(const k of Object.keys(all)){
+        const s = all[k];
+        if(!s || typeof s !== "object") continue;
+        if(s.reviewerCode !== code) continue;
+        if(s.status === "approved") continue;
+        const af = Number(s.activeFrom), au = Number(s.activeUntil);
+        if(!isFinite(af) || !isFinite(au)) continue;
+        if(af <= now && now <= au){ matchKey = k; matchData = s; break }
+      }
+    }
+    if(!matchKey){
+      showLoginMsg("Invalid code, or this session is no longer accepting reviews. Check the code with your admin.");
+      return;
+    }
+    reviewerName = name;
+    sessionKey = matchKey;
+    sessionData = matchData;
+    swapToReport();
+    await loadReport();
+  }catch(e){
+    showLoginMsg("Invalid code, or this session is no longer accepting reviews. Check the code with your admin.");
+  }finally{
+    btn.disabled = false; btn.textContent = "Continue";
+  }
+}
+
+function swapToReport(){
+  document.getElementById("rev-msg").className = "msg";
+  document.getElementById("rev-msg").textContent = "";
+  document.getElementById("screen-login").style.display = "none";
+  document.getElementById("screen-report").style.display = "block";
+  document.getElementById("rh-name").textContent = sessionData.name || sessionData.date || "Session";
+  document.getElementById("rh-date").textContent = sessionData.date ? "Date: "+sessionData.date : "";
+  document.getElementById("rh-who").textContent = reviewerName;
+}
+
+function signOut(){
+  reviewerName = "";
+  sessionKey = "";
+  sessionData = null;
+  document.getElementById("rev-name").value = "";
+  document.getElementById("rev-code").value = "";
+  document.getElementById("rev-msg").className = "msg";
+  document.getElementById("rev-msg").textContent = "";
+  document.getElementById("report-output").innerHTML = '<div class="loading-state">Loading report…</div>';
+  document.getElementById("screen-report").style.display = "none";
+  document.getElementById("screen-login").style.display = "block";
+}
+
+// ═══════════════════════════════════════════════════
+// REPORT LOADING
+// ═══════════════════════════════════════════════════
+async function loadReport(){
+  const out = document.getElementById("report-output");
+  out.innerHTML = '<div class="loading-state">Loading report…</div>';
+  if(!sessionKey){ return }
+  let session;
+  try{
+    session = await fbGet("/sessions/"+sessionKey);
+    if(!session) throw new Error("Session not found");
+  }catch(e){
+    showReportError();
+    return;
+  }
+  let vendors = {}, categories = {}, loadFailed = false;
+  try{
+    const [vData, cData] = await Promise.all([fbGet("/vendors"), fbGet("/categories")]);
+    vendors = vData || {};
+    categories = cData || {};
+  }catch(e){
+    console.warn("Report: failed to load vendors/categories — totals will default to /35.", e);
+    loadFailed = true;
+  }
+  sessionData = session;
+  document.getElementById("rh-name").textContent = session.name || session.date || "Session";
+  document.getElementById("rh-date").textContent = session.date ? "Date: "+session.date : "";
+  out.innerHTML = buildReport(session, vendors, categories, loadFailed);
+}
+
+function showReportError(){
+  document.getElementById("report-output").innerHTML =
+    '<div class="card"><div class="err-overlay">' +
+    '<h3>Couldn\u2019t load this report</h3>' +
+    '<p>Something went wrong fetching the session. Check your connection and try again.</p>' +
+    '<button class="btn pri" onclick="tryAgain()">Try again</button>' +
+    '</div></div>';
+}
+
+async function tryAgain(){
+  await loadReport();
+}
+
+// ═══════════════════════════════════════════════════
+// REPORT RENDERING — STRAIGHT COPY FROM admin.html
+// (do not edit; pure duplication is the chosen trade-off)
+// ═══════════════════════════════════════════════════
+function escapeHtml(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+
+function vendorHasPick(v){ return !!(v && (v.vendorId || v.name)); }
+function vendorDisplay(v){
+  if(v.vendorId) return escapeHtml(v.businessName||"") + " — " + escapeHtml(v.vendorName||"");
+  return escapeHtml(v.name||"");
+}
+function vendorCategory(v){
+  if(v.vendorId) return escapeHtml(v.categoryName||"");
+  return escapeHtml(v.cat||"");
+}
+function vendorGroupKey(v){
+  if(v.vendorId) return "id:"+v.vendorId;
+  return "nm:"+(v.name||"").trim().toLowerCase();
+}
+
+function buildReport(session, vendors, categories, loadFailed){
+  vendors = vendors || {}; categories = categories || {};
+  const subs = Object.values(session.submissions||{});
+  const sf = ["taste","aroma","appear","hygiene","environ","storage","safety"];
+  const SF_TO_CRIT = ["taste","aroma","appearance","hygiene","environment","storage","safety"];
+  const MUTE = '<span class="rcell-mute">—</span>';
+
+  const applicableIdx = entry => {
+    if(!entry.vendorId) return [0,1,2,3,4,5,6];
+    const v = vendors[entry.vendorId];
+    if(!v) return [0,1,2,3,4,5,6];
+    const cat = categories[v.categoryId];
+    if(!cat || !cat.criteria) return [0,1,2,3,4,5,6];
+    const idxs = SF_TO_CRIT.map((c,i)=>cat.criteria[c]?i:-1).filter(i=>i>=0);
+    return idxs.length ? idxs : [0,1,2,3,4,5,6];
+  };
+  const maxFor = entry => applicableIdx(entry).length * 5;
+  const scoreCell = (entry, key) => (key in entry) ? escapeHtml(String(entry[key])) : MUTE;
+
+  let h=`<div class="card">`;
+  h+=`<div style="text-align:center;padding:1rem 0 1.5rem"><div style="font-size:22px;font-weight:700;margin-bottom:6px">Food Vendor Inspection Report</div><div style="font-size:14px;color:var(--text2)">${session.name||session.date} &nbsp;&middot;&nbsp; Date: ${session.date} &nbsp;&middot;&nbsp; ${subs.length} taster(s)</div></div>`;
+
+  if(loadFailed){
+    h+=`<div class="report-warn">Couldn't load full category data — some totals may show as /35 by default. Try refreshing.</div>`;
+  }
+
+  h+=`<div class="sguide"><div class="sguide-t">Scoring Guide — Rate each criterion from 1 to 5</div><div class="sguide-grid"><div class="sguide-item sguide-1"><b>1</b>Unacceptable / Failed</div><div class="sguide-item sguide-2"><b>2</b>Below minimum</div><div class="sguide-item sguide-3"><b>3</b>Meets minimum</div><div class="sguide-item sguide-4"><b>4</b>Good</div><div class="sguide-item sguide-5"><b>5</b>Excellent</div></div></div>`;
+
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Tasters who submitted</div><table class="rtable"><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Time submitted</th><th>Vendors assessed</th></tr></thead><tbody>`;
+  subs.forEach((s,i)=>{ h+=`<tr><td>${i+1}</td><td><strong>${s.taster}</strong></td><td>${s.role||"—"}</td><td>${s.time}</td><td>${(s.vendors||[]).filter(vendorHasPick).length}</td></tr>` });
+  h+=`</tbody></table></div>`;
+
+  const vmap={};
+  subs.forEach(sub=>{ (sub.vendors||[]).forEach(v=>{
+    if(!vendorHasPick(v)) return;
+    const k = vendorGroupKey(v);
+    if(!vmap[k]) vmap[k] = { display: vendorDisplay(v), cat: vendorCategory(v), entries: [] };
+    vmap[k].entries.push({taster:sub.taster, ...v, _display: vendorDisplay(v)});
+  }) });
+
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 3 — Vendor assessment</div><table class="rtable"><thead><tr><th>Vendor</th><th>Cat.</th><th>Taster</th><th>Attend.</th><th>Taste</th><th>Aroma</th><th>Appear.</th><th>Hygiene</th><th>Environ.</th><th>Storage</th><th>Safety</th><th>Total</th></tr></thead><tbody>`;
+  let sn=1;
+  Object.values(vmap).forEach(vd=>{
+    const groupMax = maxFor(vd.entries[0]);
+    const avg={};
+    sf.forEach(f=>{
+      const ns = vd.entries.map(e=>parseFloat(e[f])).filter(n=>!isNaN(n));
+      avg[f] = ns.length ? (ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1) : null;
+    });
+    const avgNums = sf.map(f=>avg[f]).filter(v=>v!==null).map(parseFloat);
+    const avgTot = avgNums.reduce((a,b)=>a+b,0).toFixed(1);
+    const avgCell = avgNums.length ? `${avgTot}/${groupMax} · ${Math.round(parseFloat(avgTot)/groupMax*100)}%` : "—";
+    vd.entries.forEach((e,ei)=>{
+      const max = maxFor(e);
+      const tot = sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
+      const hasN = sf.some(f=>!isNaN(parseFloat(e[f])));
+      h+=`<tr>`;if(ei===0)h+=`<td rowspan="${vd.entries.length+1}" style="font-weight:600">${sn++}. ${vd.display}</td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
+      h+=`<td>${escapeHtml(e.taster||"")}</td><td>${escapeHtml(e.att||"")}</td>`;
+      h+=sf.map(f=>`<td>${scoreCell(e,f)}</td>`).join("");
+      h+=`<td>${hasN ? tot+"/"+max+" · "+Math.round(tot/max*100)+"%" : "—"}</td></tr>`;
+    });
+    h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td>${sf.map(f=>`<td><strong>${avg[f]===null?MUTE:avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 4 — Feedback &amp; observations</div><table class="rtable"><thead><tr><th>Vendor</th><th>Taster</th><th>Sampled product</th><th>Customer feedback</th><th>Observations</th><th>Follow-up?</th><th>Prev. resolved?</th></tr></thead><tbody>`;
+  Object.values(vmap).forEach(vd=>{ vd.entries.forEach(e=>{ h+=`<tr><td><strong>${e._display}</strong></td><td>${e.taster}</td><td>${e.sample||"—"}</td><td>${e.cust||"—"}</td><td>${e.obs||"—"}</td><td>${e.fu}</td><td>${e.pi}</td></tr>` }) });
+  h+=`</tbody></table></div>`;
+
+  const allA=[];subs.forEach(s=>{ (s.actions||[]).filter(a=>a.issue).forEach(a=>allA.push({taster:s.taster,...a})) });
+  if(allA.length){
+    h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 5 — Actions &amp; follow-ups</div><table class="rtable"><thead><tr><th>#</th><th>Vendor</th><th>Raised by</th><th>Issue</th><th>Action</th><th>Deadline</th><th>Officer</th></tr></thead><tbody>`;
+    allA.forEach((a,i)=>{ h+=`<tr><td>${i+1}</td><td>${a.vendor||"—"}</td><td>${a.taster}</td><td>${a.issue}</td><td>${a.action||"—"}</td><td>${a.deadline||"—"}</td><td>${a.officer||"—"}</td></tr>` });
+    h+=`</tbody></table></div>`;
+  }
+
+  h+=`<div><div class="card-t" style="font-size:13px">Section 6 — Sign-off</div><table class="rtable"><thead><tr><th>Inspector</th><th>Role</th><th>Time submitted</th></tr></thead><tbody>`;
+  subs.forEach(s=>{ h+=`<tr><td><strong>${s.taster}</strong></td><td>${s.role||"—"}</td><td>${s.time}</td></tr>` });
+  h+=`</tbody></table></div></div>`;
+  return h;
+}
+
+// Submit on Enter from either input
+document.getElementById("rev-name").addEventListener("keydown", e=>{ if(e.key==="Enter") attemptLogin() });
+document.getElementById("rev-code").addEventListener("keydown", e=>{ if(e.key==="Enter") attemptLogin() });
+// Strip non-digits from the code field as the user types
+document.getElementById("rev-code").addEventListener("input", e=>{ e.target.value = e.target.value.replace(/\D/g,"").slice(0,6) });
+</script>
+</body>
+</html>
