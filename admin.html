@@ -96,6 +96,8 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 .rtable th{background:var(--bg2);text-align:left;padding:7px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);border:0.5px solid var(--border)}
 .rtable td{padding:8px 10px;border:0.5px solid var(--border);vertical-align:top}
 .rtable tr:nth-child(even) td{background:var(--bg2)}
+.rcell-mute{color:var(--text3)}
+.report-warn{background:var(--amber-bg);color:var(--amber-text);border-radius:var(--rs);padding:9px 13px;font-size:12px;margin:0 0 12px}
 
 /* ── Settings ──────────────────────────────── */
 .setting-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1rem 0;border-bottom:0.5px solid var(--border)}
@@ -142,7 +144,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   .stats-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:480px){.sguide-grid{grid-template-columns:1fr}}
-@media print{.topbar,.sidebar,.session-actions,.btn{display:none!important}.main{padding:0}.sguide{break-inside:avoid}}
+@media print{.topbar,.sidebar,.session-actions,.btn{display:none!important}.main{padding:0}.sguide{break-inside:avoid}.rcell-mute{color:#999!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-warn{display:none!important}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -1175,9 +1177,21 @@ async function generateReport(){
   out.innerHTML='<div class="loading-state"><span class="spin" style="border-top-color:var(--blue)"></span> Generating report...</div>';
   printBtn.style.display="none";
   try{
+    // Vendors + categories are needed for criteria-driven totals. A failure on either
+    // is non-fatal: we render the report with totals defaulting to /35 and surface a
+    // banner so the admin knows totals may be off.
+    let vendors = {}, categories = {}, loadFailed = false;
+    try {
+      const [vData, cData] = await Promise.all([fbGet("/vendors"), fbGet("/categories")]);
+      vendors = vData || {};
+      categories = cData || {};
+    } catch(e){
+      console.warn("Report: failed to load vendors/categories — totals will default to /35.", e);
+      loadFailed = true;
+    }
     const s = await fbGet("/"+sel.value);
     if(!s||!s.submissions||Object.keys(s.submissions).length===0){ out.innerHTML='<div class="loading-state">No submissions found for this session.</div>'; return }
-    out.innerHTML = buildReport(s);
+    out.innerHTML = buildReport(s, vendors, categories, loadFailed);
     printBtn.style.display="block";
   }catch(e){ out.innerHTML='<div class="loading-state" style="color:var(--red-text)">Error: '+e.message+'</div>' }
 }
@@ -1213,11 +1227,39 @@ function vendorGroupKey(v){
   return "nm:"+(v.name||"").trim().toLowerCase();
 }
 
-function buildReport(session){
+function buildReport(session, vendors, categories, loadFailed){
+  vendors = vendors || {}; categories = categories || {};
   const subs = Object.values(session.submissions||{});
+  // sf is the canonical score-key order shared with the taster form. Position is
+  // significant because it parallels SF_TO_CRIT below.
   const sf = ["taste","aroma","appear","hygiene","environ","storage","safety"];
+  // Map sf abbreviated keys → category.criteria full-name keys, position-aligned.
+  const SF_TO_CRIT = ["taste","aroma","appearance","hygiene","environment","storage","safety"];
+  const MUTE = '<span class="rcell-mute">—</span>';
+
+  // Indexes into sf that apply to this entry's category. Falls back to all 7 for:
+  // old-format entries (no vendorId), unknown vendor, deleted/missing category, or
+  // a category with no criteria field. Empty-criteria fallback shouldn't be reachable
+  // (C1 enforces ≥1 criterion) but we still default to all 7 if it somehow happens.
+  const applicableIdx = entry => {
+    if(!entry.vendorId) return [0,1,2,3,4,5,6];
+    const v = vendors[entry.vendorId];
+    if(!v) return [0,1,2,3,4,5,6];
+    const cat = categories[v.categoryId];
+    if(!cat || !cat.criteria) return [0,1,2,3,4,5,6];
+    const idxs = SF_TO_CRIT.map((c,i)=>cat.criteria[c]?i:-1).filter(i=>i>=0);
+    return idxs.length ? idxs : [0,1,2,3,4,5,6];
+  };
+  const maxFor = entry => applicableIdx(entry).length * 5;
+  // Per-cell renderer: absent key → muted "—", present (number or "N/A") → as-is.
+  const scoreCell = (entry, key) => (key in entry) ? escapeHtml(String(entry[key])) : MUTE;
+
   let h=`<div class="card">`;
   h+=`<div style="text-align:center;padding:1rem 0 1.5rem"><div style="font-size:22px;font-weight:700;margin-bottom:6px">Food Vendor Inspection Report</div><div style="font-size:14px;color:var(--text2)">${session.name||session.date} &nbsp;&middot;&nbsp; Date: ${session.date} &nbsp;&middot;&nbsp; ${subs.length} taster(s)</div></div>`;
+
+  if(loadFailed){
+    h+=`<div class="report-warn">Couldn't load full category data — some totals may show as /35 by default. Try refreshing.</div>`;
+  }
 
   // Scoring guide
   h+=`<div class="sguide"><div class="sguide-t">Scoring Guide — Rate each criterion from 1 to 5</div><div class="sguide-grid"><div class="sguide-item sguide-1"><b>1</b>Unacceptable / Failed</div><div class="sguide-item sguide-2"><b>2</b>Below minimum</div><div class="sguide-item sguide-3"><b>3</b>Meets minimum</div><div class="sguide-item sguide-4"><b>4</b>Good</div><div class="sguide-item sguide-5"><b>5</b>Excellent</div></div></div>`;
@@ -1240,18 +1282,29 @@ function buildReport(session){
   h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 3 — Vendor assessment</div><table class="rtable"><thead><tr><th>Vendor</th><th>Cat.</th><th>Taster</th><th>Attend.</th><th>Taste</th><th>Aroma</th><th>Appear.</th><th>Hygiene</th><th>Environ.</th><th>Storage</th><th>Safety</th><th>Total</th></tr></thead><tbody>`;
   let sn=1;
   Object.values(vmap).forEach(vd=>{
+    // All entries in a group share the same vendorGroupKey → same vendor → same
+    // category → same max. Pick the first to derive group-level avg max.
+    const groupMax = maxFor(vd.entries[0]);
+    // Per-column averages: skip absent keys and "N/A" values; if no numeric entries
+    // remain for a column, render the muted "—" instead of a number.
     const avg={};
-    sf.forEach(f=>{ const ns=vd.entries.map(e=>parseFloat(e[f])).filter(n=>!isNaN(n)); avg[f]=ns.length?(ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1):"N/A" });
-    const avgNums=sf.map(f=>parseFloat(avg[f])).filter(n=>!isNaN(n));
-    const avgTot=avgNums.reduce((a,b)=>a+b,0).toFixed(1);
-    const avgCell=avgNums.length?`${avgTot}/35 · ${Math.round(parseFloat(avgTot)/35*100)}%`:"—";
-    vd.entries.forEach((e,ei)=>{
-      const tot=sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
-      const hasN=sf.some(f=>!isNaN(parseFloat(e[f])));
-      h+=`<tr>`;if(ei===0)h+=`<td rowspan="${vd.entries.length+1}" style="font-weight:600">${sn++}. ${vd.display}</td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
-      h+=`<td>${e.taster}</td><td>${e.att}</td><td>${e.taste}</td><td>${e.aroma}</td><td>${e.appear}</td><td>${e.hygiene}</td><td>${e.environ}</td><td>${e.storage}</td><td>${e.safety}</td><td>${hasN?tot+"/35 · "+Math.round(tot/35*100)+"%":"—"}</td></tr>`;
+    sf.forEach(f=>{
+      const ns = vd.entries.map(e=>parseFloat(e[f])).filter(n=>!isNaN(n));
+      avg[f] = ns.length ? (ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1) : null;
     });
-    h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td>${sf.map(f=>`<td><strong>${avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
+    const avgNums = sf.map(f=>avg[f]).filter(v=>v!==null).map(parseFloat);
+    const avgTot = avgNums.reduce((a,b)=>a+b,0).toFixed(1);
+    const avgCell = avgNums.length ? `${avgTot}/${groupMax} · ${Math.round(parseFloat(avgTot)/groupMax*100)}%` : "—";
+    vd.entries.forEach((e,ei)=>{
+      const max = maxFor(e);
+      const tot = sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
+      const hasN = sf.some(f=>!isNaN(parseFloat(e[f])));
+      h+=`<tr>`;if(ei===0)h+=`<td rowspan="${vd.entries.length+1}" style="font-weight:600">${sn++}. ${vd.display}</td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
+      h+=`<td>${escapeHtml(e.taster||"")}</td><td>${escapeHtml(e.att||"")}</td>`;
+      h+=sf.map(f=>`<td>${scoreCell(e,f)}</td>`).join("");
+      h+=`<td>${hasN ? tot+"/"+max+" · "+Math.round(tot/max*100)+"%" : "—"}</td></tr>`;
+    });
+    h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td>${sf.map(f=>`<td><strong>${avg[f]===null?MUTE:avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
   });
   h+=`</tbody></table></div>`;
 
