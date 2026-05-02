@@ -78,7 +78,7 @@ input:focus{outline:none;border-color:var(--blue)}
   <div id="screen-login">
     <div class="hdr">
       <h1>Reviewer access</h1>
-      <p>Enter the session code shared by the admin</p>
+      <p>Enter the session date and code shared by the admin</p>
     </div>
     <div class="card login-card">
       <div class="field">
@@ -86,12 +86,16 @@ input:focus{outline:none;border-color:var(--blue)}
         <input type="text" id="rev-name" autocomplete="name" placeholder="e.g. Pat Williams">
       </div>
       <div class="field">
+        <label class="lbl" for="rev-date">Session date</label>
+        <input type="date" id="rev-date" autocomplete="off">
+      </div>
+      <div class="field">
         <label class="lbl" for="rev-code">Session code</label>
         <input type="tel" id="rev-code" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="6-digit code">
       </div>
       <button class="btn pri full" id="rev-go" onclick="attemptLogin()">Continue</button>
       <div id="rev-msg" class="msg"></div>
-      <div class="help">Don't have a code? Ask the session admin to share one with you.</div>
+      <div class="help">Don't have a code or session date? Ask the admin to share both with you.</div>
     </div>
   </div>
 
@@ -136,43 +140,58 @@ function showLoginMsg(text, kind){
   el.textContent = text;
 }
 
+const GENERIC_LOGIN_ERR = "Invalid date or code, or this session is no longer accepting reviews. Check with your admin.";
+
 async function attemptLogin(){
   const nameEl = document.getElementById("rev-name");
+  const dateEl = document.getElementById("rev-date");
   const codeEl = document.getElementById("rev-code");
   const name = nameEl.value.trim();
+  const dateVal = dateEl.value;
   const code = codeEl.value.trim();
   const btn = document.getElementById("rev-go");
 
   if(!name){ showLoginMsg("Please enter your name."); nameEl.focus(); return }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateVal)){ showLoginMsg("Please pick the session date."); dateEl.focus(); return }
   if(!/^[0-9]{6}$/.test(code)){ showLoginMsg("Code must be 6 digits."); codeEl.focus(); return }
 
+  const key = dateVal.replace(/-/g,"");
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Checking…';
   try{
-    const all = await fbGet("/sessions");
-    const now = Date.now();
-    let matchKey = null, matchData = null;
-    if(all && typeof all === "object"){
-      for(const k of Object.keys(all)){
-        const s = all[k];
-        if(!s || typeof s !== "object") continue;
-        if(s.reviewerCode !== code) continue;
-        if(s.status === "approved") continue;
-        const af = Number(s.activeFrom), au = Number(s.activeUntil);
-        if(!isFinite(af) || !isFinite(au)) continue;
-        if(af <= now && now <= au){ matchKey = k; matchData = s; break }
-      }
+    let r;
+    try{
+      r = await fetch(DB+"/sessions/"+key+".json");
+    }catch(networkErr){
+      showLoginMsg("Couldn't reach the server. Try again.","amber");
+      return;
     }
-    if(!matchKey){
-      showLoginMsg("Invalid code, or this session is no longer accepting reviews. Check the code with your admin.");
+    if(!r.ok){
+      if(r.status === 401 || r.status === 403){
+        showLoginMsg(GENERIC_LOGIN_ERR);
+      } else {
+        showLoginMsg("Couldn't reach the server. Try again.","amber");
+      }
+      return;
+    }
+    const session = await r.json();
+    if(!session || typeof session !== "object"){
+      showLoginMsg(GENERIC_LOGIN_ERR);
+      return;
+    }
+    const now = Date.now();
+    const af = Number(session.activeFrom), au = Number(session.activeUntil);
+    const codeOk = session.reviewerCode === code;
+    const statusOk = (session.status !== "approved");
+    const windowOk = isFinite(af) && isFinite(au) && af <= now && now <= au;
+    if(!codeOk || !statusOk || !windowOk){
+      showLoginMsg(GENERIC_LOGIN_ERR);
       return;
     }
     reviewerName = name;
-    sessionKey = matchKey;
-    sessionData = matchData;
+    sessionKey = key;
+    sessionData = session;
     swapToReport();
     await loadReport();
-  }catch(e){
-    showLoginMsg("Invalid code, or this session is no longer accepting reviews. Check the code with your admin.");
   }finally{
     btn.disabled = false; btn.textContent = "Continue";
   }
@@ -193,6 +212,7 @@ function signOut(){
   sessionKey = "";
   sessionData = null;
   document.getElementById("rev-name").value = "";
+  document.getElementById("rev-date").value = "";
   document.getElementById("rev-code").value = "";
   document.getElementById("rev-msg").className = "msg";
   document.getElementById("rev-msg").textContent = "";
@@ -348,8 +368,9 @@ function buildReport(session, vendors, categories, loadFailed){
   return h;
 }
 
-// Submit on Enter from either input
+// Submit on Enter from any input
 document.getElementById("rev-name").addEventListener("keydown", e=>{ if(e.key==="Enter") attemptLogin() });
+document.getElementById("rev-date").addEventListener("keydown", e=>{ if(e.key==="Enter") attemptLogin() });
 document.getElementById("rev-code").addEventListener("keydown", e=>{ if(e.key==="Enter") attemptLogin() });
 // Strip non-digits from the code field as the user types
 document.getElementById("rev-code").addEventListener("input", e=>{ e.target.value = e.target.value.replace(/\D/g,"").slice(0,6) });
