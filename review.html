@@ -35,6 +35,10 @@ input:focus{outline:none;border-color:var(--blue)}
 
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
 .badge.grey{background:var(--bg2);color:var(--text2);border:0.5px solid var(--border)}
+.badge.green{background:var(--green-bg);color:var(--green-text);border:0.5px solid transparent}
+
+.approval-line{font-size:12px;color:var(--green-text);margin-top:4px;font-weight:500}
+.approval-line:empty{display:none}
 
 /* ── Reviewer header bar ── */
 .review-hdr{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.25rem;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);margin-bottom:1.25rem;flex-wrap:wrap}
@@ -88,6 +92,12 @@ input:focus{outline:none;border-color:var(--blue)}
 .toast.green{background:var(--green-bg);color:var(--green-text)}
 .toast.red{background:var(--red-bg);color:var(--red-text)}
 @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── R5 Approve panel ── */
+.approve-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:1.5rem;margin-bottom:1.25rem;text-align:center}
+.approve-help{font-size:13px;color:var(--text2);margin-bottom:14px;font-style:italic}
+.approve-card .btn.full{max-width:380px;margin:0 auto;display:block}
+.approved-block{font-size:14px;color:var(--green-text);background:var(--green-bg);padding:14px 18px;border-radius:var(--rs);font-weight:500}
 </style>
 </head>
 <body>
@@ -124,6 +134,7 @@ input:focus{outline:none;border-color:var(--blue)}
       <div class="rh-left">
         <h2 id="rh-name">—</h2>
         <p id="rh-date">—</p>
+        <p id="rh-approval" class="approval-line"></p>
       </div>
       <div class="rh-right">
         <span class="badge grey" id="rh-pill">Pending review</span>
@@ -146,6 +157,11 @@ const DB = "https://food-sampling-hod-iforum-default-rtdb.firebaseio.com";
 async function fbGet(p){ const r=await fetch(DB+p+".json"); if(!r.ok)throw new Error("HTTP "+r.status); return r.json() }
 async function fbPut(p, value){
   const r = await fetch(DB+p+".json", { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(value) });
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return r.json();
+}
+async function fbPatch(p, body){
+  const r = await fetch(DB+p+".json", { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
   if(!r.ok) throw new Error("HTTP "+r.status);
   return r.json();
 }
@@ -273,7 +289,30 @@ async function loadReport(){
   lastVendors = vendors; lastCategories = categories; lastLoadFailed = loadFailed;
   document.getElementById("rh-name").textContent = session.name || session.date || "Session";
   document.getElementById("rh-date").textContent = session.date ? "Date: "+session.date : "";
+  updateHeader();
   out.innerHTML = buildReport(session, vendors, categories, loadFailed);
+}
+
+function formatApprovedAt(ms){
+  const d = new Date(ms);
+  if(isNaN(d.getTime())) return "";
+  const mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return d.getDate() + " " + mo[d.getMonth()] + " " + d.getFullYear();
+}
+
+function updateHeader(){
+  const pill = document.getElementById("rh-pill");
+  const line = document.getElementById("rh-approval");
+  if(!pill || !line) return;
+  const approved = sessionData && sessionData.status === "approved";
+  pill.className = "badge " + (approved ? "green" : "grey");
+  pill.textContent = approved ? "Approved" : "Pending review";
+  if(approved && sessionData.approvedBy){
+    const when = sessionData.approvedAt ? formatApprovedAt(sessionData.approvedAt) : "";
+    line.textContent = "Approved by " + sessionData.approvedBy + (when ? " on " + when : "");
+  } else {
+    line.textContent = "";
+  }
 }
 
 function showReportError(){
@@ -380,12 +419,46 @@ async function removeAction(subId, actionIdx){
   }
 }
 
+// ═══════════════════════════════════════════════════
+// APPROVE (R5)
+// ═══════════════════════════════════════════════════
+const APPROVE_HELP = "When you approve, the report becomes final. Edits will be locked until an admin reopens the session.";
+const APPROVE_CONFIRM = "Approve this report? You won't be able to edit it after this.";
+const APPROVED_LOCKED_MSG = "This report has been approved. To make further changes, ask an admin to reopen the session.";
+
+async function approveReport(){
+  if(!sessionKey || !sessionData) return;
+  if(!confirm(APPROVE_CONFIRM)) return;
+  const btn = document.getElementById("rev-approve-btn");
+  if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Approving…'; }
+  const payload = {
+    status: "approved",
+    approvedBy: reviewerName,
+    approvedAt: Date.now()
+  };
+  try{
+    await fbPatch("/sessions/"+sessionKey, payload);
+    sessionData.status = payload.status;
+    sessionData.approvedBy = payload.approvedBy;
+    sessionData.approvedAt = payload.approvedAt;
+    rerenderReport();
+  }catch(e){
+    showToast("Approval failed. Refresh and try again.", "err");
+    if(btn){ btn.disabled = false; btn.textContent = "Approve report"; }
+  }
+}
+
 function rerenderReport(){
   // Re-render from cached sessionData + last-known vendors/categories.
   // We don't re-fetch /vendors|/categories here — those are stable for a session.
   const out = document.getElementById("report-output");
   if(!sessionData) return;
+  // Preserve scroll position so the in-place re-render after approve / action
+  // add-or-remove doesn't jump the reviewer to the top of the page.
+  const sx = window.scrollX, sy = window.scrollY;
   out.innerHTML = buildReport(sessionData, lastVendors, lastCategories, lastLoadFailed);
+  updateHeader();
+  window.scrollTo(sx, sy);
 }
 
 let lastVendors = {}, lastCategories = {}, lastLoadFailed = false;
@@ -417,6 +490,7 @@ function buildReport(session, vendors, categories, loadFailed){
   const subs = subEntries.map(([,s])=>s);
   const sf = ["taste","aroma","appear","hygiene","environ","storage","safety"];
   const MUTE = '<span class="rcell-mute">—</span>';
+  const isApproved = session && session.status === "approved";
 
   // Snapshot-driven applicability: a criterion is editable iff its key is
   // present on the entry (regardless of value — number, "N/A", "").
@@ -427,12 +501,13 @@ function buildReport(session, vendors, categories, loadFailed){
     return (n ? n : 7) * 5;
   };
 
-  // Render an editable score cell. Reads the live value, includes "N/A" in
-  // the option list iff that's the current value (so non-numeric legacy
-  // values aren't silently overwritten).
+  // Render a score cell. Approved → read-only escaped text. Pending → dropdown.
+  // Dropdown includes "N/A" iff that's the current value, so non-numeric legacy
+  // values aren't silently overwritten.
   const scoreSelect = (entry, key) => {
     if(!(key in entry)) return MUTE;
     const cur = entry[key] == null ? "" : String(entry[key]);
+    if(isApproved) return cur === "" ? MUTE : escapeHtml(cur);
     const opts = ["","1","2","3","4","5"];
     if(cur && !opts.includes(cur)) opts.push(cur);
     const optsHtml = opts.map(o=>`<option value="${escapeHtml(o)}"${o===cur?" selected":""}>${o===""?"—":escapeHtml(o)}</option>`).join("");
@@ -487,13 +562,15 @@ function buildReport(session, vendors, categories, loadFailed){
   });
   h+=`</tbody></table></div>`;
 
-  // Section 4 — feedback (text inputs + radio groups)
+  // Section 4 — feedback (text inputs + radio groups; plain text when approved)
   const fbText = (e, field) => {
     const cur = e[field] == null ? "" : String(e[field]);
+    if(isApproved) return cur === "" ? MUTE : escapeHtml(cur);
     return `<input type="text" class="cell-edit" data-sub="${escapeHtml(e._subId)}" data-vidx="${e._vIdx}" data-field="${field}" value="${escapeHtml(cur)}" onblur="if(this.value!==this.defaultValue){saveField(this.dataset.sub, +this.dataset.vidx, this.dataset.field, this.value); this.defaultValue=this.value}">`;
   };
   const fbRadio = (e, field, options) => {
     const cur = e[field] == null ? "" : String(e[field]);
+    if(isApproved) return cur === "" ? MUTE : escapeHtml(cur);
     const grpName = `r-${e._subId}-${e._vIdx}-${field}`;
     return `<div class="radio-grp">` + options.map(o=>`<label><input type="radio" name="${grpName}" value="${escapeHtml(o)}"${o===cur?" checked":""} onchange="saveField('${e._subId}', ${e._vIdx}, '${field}', this.value)">${escapeHtml(o)}</label>`).join("") + `</div>`;
   };
@@ -523,16 +600,19 @@ function buildReport(session, vendors, categories, loadFailed){
 
   const aText = (a, field) => {
     const cur = a[field] == null ? "" : String(a[field]);
+    if(isApproved) return cur === "" ? MUTE : escapeHtml(cur);
     return `<input type="text" class="cell-edit" value="${escapeHtml(cur)}" onblur="if(this.value!==this.defaultValue){saveAction('${a._subId}', ${a._aIdx}, '${field}', this.value); this.defaultValue=this.value}">`;
   };
   const aDate = (a, field) => {
     const cur = a[field] == null ? "" : String(a[field]);
+    if(isApproved) return cur === "" ? MUTE : escapeHtml(cur);
     return `<input type="date" class="cell-edit" value="${escapeHtml(cur)}" onchange="saveAction('${a._subId}', ${a._aIdx}, '${field}', this.value)">`;
   };
 
   h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 5 — Actions &amp; follow-ups</div>`;
   if(allA.length){
-    h+=`<table class="rtable"><thead><tr><th>#</th><th>Vendor</th><th>Raised by</th><th>Issue</th><th>Action</th><th>Deadline</th><th>Officer</th><th></th></tr></thead><tbody>`;
+    const headExtra = isApproved ? "" : "<th></th>";
+    h+=`<table class="rtable"><thead><tr><th>#</th><th>Vendor</th><th>Raised by</th><th>Issue</th><th>Action</th><th>Deadline</th><th>Officer</th>${headExtra}</tr></thead><tbody>`;
     allA.forEach((a,i)=>{
       h+=`<tr>`;
       h+=`<td>${i+1}</td>`;
@@ -542,14 +622,16 @@ function buildReport(session, vendors, categories, loadFailed){
       h+=`<td>${aText(a,"action")}</td>`;
       h+=`<td>${aDate(a,"deadline")}</td>`;
       h+=`<td>${aText(a,"officer")}</td>`;
-      h+=`<td><button class="btn-rm" onclick="removeAction('${a._subId}', ${a._aIdx})">Remove</button></td>`;
+      if(!isApproved){
+        h+=`<td><button class="btn-rm" onclick="removeAction('${a._subId}', ${a._aIdx})">Remove</button></td>`;
+      }
       h+=`</tr>`;
     });
     h+=`</tbody></table>`;
   } else {
-    h+=`<div style="font-size:13px;color:var(--text3);padding:8px 0">No action items yet.</div>`;
+    h+=`<div style="font-size:13px;color:var(--text3);padding:8px 0">No action items.</div>`;
   }
-  if(addSubId){
+  if(addSubId && !isApproved){
     h+=`<div class="action-add"><button class="btn sm" onclick="addAction('${addSubId}')">+ Add action</button></div>`;
   }
   h+=`</div>`;
@@ -557,6 +639,16 @@ function buildReport(session, vendors, categories, loadFailed){
   h+=`<div><div class="card-t" style="font-size:13px">Section 6 — Sign-off</div><table class="rtable"><thead><tr><th>Inspector</th><th>Role</th><th>Time submitted</th></tr></thead><tbody>`;
   subs.forEach(s=>{ h+=`<tr><td><strong>${escapeHtml(s.taster||"")}</strong></td><td>${escapeHtml(s.role||"—")}</td><td>${escapeHtml(s.time||"")}</td></tr>` });
   h+=`</tbody></table></div></div>`;
+
+  // R5 — Approve panel as a separate card below the report
+  h+=`<div class="approve-card">`;
+  if(isApproved){
+    h+=`<div class="approved-block">${escapeHtml(APPROVED_LOCKED_MSG)}</div>`;
+  } else {
+    h+=`<p class="approve-help">${escapeHtml(APPROVE_HELP)}</p>`;
+    h+=`<button class="btn pri full" id="rev-approve-btn" onclick="approveReport()">Approve report</button>`;
+  }
+  h+=`</div>`;
   return h;
 }
 
