@@ -76,6 +76,17 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 .badge.green{background:var(--green-bg);color:var(--green-text)}
 .badge.amber{background:var(--amber-bg);color:var(--amber-text)}
 .badge.purple{background:var(--purple-bg);color:var(--purple-text)}
+.badge.grey{background:var(--bg2);color:var(--text2);border:0.5px solid var(--border)}
+
+/* ── Reviewer code ─────────────────────────── */
+.rev-code-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rev-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:18px;font-weight:600;letter-spacing:2px;padding:8px 14px;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rs);transition:background-color .25s ease,color .25s ease}
+.rev-code.pulse{background:var(--green-bg);color:var(--green-text)}
+.copy-fb{font-size:12px;color:var(--green-text);margin-left:4px}
+.rev-help{font-size:12px;color:var(--text2);margin-top:6px}
+.row-rev{font-size:12px;color:var(--text2);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row-rev code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;color:var(--text)}
+.row-approved{font-size:12px;color:var(--text3);margin-top:2px}
 
 /* ── Stats grid ────────────────────────────── */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem}
@@ -239,6 +250,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
         <div class="stats-grid" id="stats-grid">
           <div class="stat-card"><div class="stat-label">Total sessions</div><div class="stat-value" id="stat-sessions">—</div><div class="stat-sub">All time</div></div>
           <div class="stat-card"><div class="stat-label">Total submissions</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">Across all sessions</div></div>
+          <div class="stat-card"><div class="stat-label">Pending review</div><div class="stat-value" id="stat-pending">—</div><div class="stat-sub">Awaiting reviewer</div></div>
           <div class="stat-card"><div class="stat-label">Latest session</div><div class="stat-value" id="stat-latest" style="font-size:16px;margin-top:4px">—</div><div class="stat-sub" id="stat-latest-sub">—</div></div>
           <div class="stat-card"><div class="stat-label">Tasters today</div><div class="stat-value" id="stat-today">—</div><div class="stat-sub">In today's session</div></div>
         </div>
@@ -259,6 +271,15 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
             <div class="field"><label class="lbl">Event / location name</label><input type="text" id="cs-name" placeholder="e.g. Sunday Market"></div>
           </div>
           <div class="field"><label class="lbl">Notes (optional)</label><textarea id="cs-notes" placeholder="Any instructions or notes for this inspection session..."></textarea></div>
+          <div class="field">
+            <label class="lbl">Reviewer code</label>
+            <div class="rev-code-row">
+              <span id="cs-revcode" class="rev-code">000000</span>
+              <button class="btn sm" type="button" id="cs-revcode-copy" onclick="copyReviewerCode(document.getElementById('cs-revcode').textContent, 'cs-revcode-copy')">Copy</button>
+              <button class="btn sm" type="button" onclick="regenerateCreateCode()">Regenerate</button>
+            </div>
+            <div class="rev-help">Share this code with your reviewer to let them access this session's report.</div>
+          </div>
           <div style="margin-top:1rem;display:flex;gap:10px">
             <button class="btn pri" id="cs-btn" onclick="createSession()">Create session</button>
           </div>
@@ -510,10 +531,57 @@ function showPanel(name){
   });
   if(name==="dashboard") loadDashboard();
   if(name==="sessions") loadAllSessions();
+  if(name==="create-session") regenerateCreateCode(true);
   if(name==="categories") loadCategories();
   if(name==="vendors") loadVendors();
   if(name==="reports") loadReportSelector();
   if(name==="settings"){ document.getElementById("db-url-display").textContent = DB; }
+}
+
+// ═══════════════════════════════════════════════════
+// REVIEWER CODE HELPERS
+// ═══════════════════════════════════════════════════
+function generateReviewerCode(){
+  return String(Math.floor(Math.random()*1e6)).padStart(6,"0");
+}
+function validReviewerCode(s){ return /^[0-9]{6}$/.test(String(s||"")); }
+
+function regenerateCreateCode(silent){
+  const el = document.getElementById("cs-revcode");
+  if(!el) return;
+  el.textContent = generateReviewerCode();
+  if(silent) return;
+  el.classList.remove("pulse");
+  void el.offsetWidth;
+  el.classList.add("pulse");
+  setTimeout(()=>el.classList.remove("pulse"), 280);
+}
+
+function copyReviewerCode(text, btnId){
+  if(!validReviewerCode(text)) return;
+  const btn = btnId ? document.getElementById(btnId) : null;
+  const restore = btn ? btn.textContent : null;
+  const showFb = ok => {
+    if(!btn) return;
+    btn.textContent = ok ? "Copied!" : "Copy failed";
+    setTimeout(()=>{ btn.textContent = restore; }, 1400);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>showFb(true)).catch(()=>showFb(false));
+  } else {
+    showFb(false);
+  }
+}
+
+function formatApprovedAt(ms){
+  const d = new Date(Number(ms));
+  if(isNaN(d.getTime())) return "—";
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return d.getDate()+" "+months[d.getMonth()]+" "+d.getFullYear();
+}
+
+function sessionStatus(s){
+  return (s && s.status === "approved") ? "approved" : "pending";
 }
 
 // ═══════════════════════════════════════════════════
@@ -522,6 +590,7 @@ function showPanel(name){
 function initApp(){
   // set today as default date for create session
   document.getElementById("cs-date").value = todayLagos();
+  regenerateCreateCode(true);
   loadDashboard();
 }
 
@@ -531,17 +600,20 @@ function initApp(){
 async function loadDashboard(){
   try{
     const data = await fbGet("/sessions");
-    if(!data){ setStats(0,0,"—","—",0); document.getElementById("dashboard-sessions").innerHTML='<div class="loading-state">No sessions yet. <a href="#" onclick="showPanel(\'create-session\')">Create the first one.</a></div>'; return }
+    if(!data){ setStats(0,0,"—","—",0,0); document.getElementById("dashboard-sessions").innerHTML='<div class="loading-state">No sessions yet. <a href="#" onclick="showPanel(\'create-session\')">Create the first one.</a></div>'; return }
     const keys = Object.keys(data).sort().reverse();
-    let totalSubs = 0;
-    keys.forEach(k=>{ totalSubs += data[k].submissions ? Object.keys(data[k].submissions).length : 0 });
+    let totalSubs = 0, pending = 0;
+    keys.forEach(k=>{
+      totalSubs += data[k].submissions ? Object.keys(data[k].submissions).length : 0;
+      if(sessionStatus(data[k]) === "pending") pending++;
+    });
     const latest = data[keys[0]];
     const latestName = latest.name || latest.date;
     const latestSubs = latest.submissions ? Object.keys(latest.submissions).length : 0;
     // today's session
     const todayKey = todayLagos().replace(/-/g,"");
     const todaySubs = data[todayKey] && data[todayKey].submissions ? Object.keys(data[todayKey].submissions).length : 0;
-    setStats(keys.length, totalSubs, latestName, latest.date, todaySubs);
+    setStats(keys.length, totalSubs, latestName, latest.date, todaySubs, pending);
     // recent sessions list
     const container = document.getElementById("dashboard-sessions");
     container.innerHTML = "";
@@ -555,12 +627,13 @@ async function loadDashboard(){
   }catch(e){ document.getElementById("dashboard-sessions").innerHTML='<div class="loading-state" style="color:var(--red-text)">Error loading data: '+e.message+'</div>' }
 }
 
-function setStats(sessions,subs,latestName,latestDate,today){
+function setStats(sessions,subs,latestName,latestDate,today,pending){
   document.getElementById("stat-sessions").textContent = sessions;
   document.getElementById("stat-subs").textContent = subs;
   document.getElementById("stat-latest").textContent = latestName;
   document.getElementById("stat-latest-sub").textContent = latestDate || "—";
   document.getElementById("stat-today").textContent = today;
+  document.getElementById("stat-pending").textContent = pending;
 }
 
 // ═══════════════════════════════════════════════════
@@ -570,7 +643,9 @@ async function createSession(){
   const date = document.getElementById("cs-date").value;
   const name = document.getElementById("cs-name").value.trim();
   const notes = document.getElementById("cs-notes").value.trim();
+  const reviewerCode = document.getElementById("cs-revcode").textContent.trim();
   if(!date){ msg("cs-msg","Please select a date.","amber"); return }
+  if(!validReviewerCode(reviewerCode)){ msg("cs-msg","Reviewer code is invalid. Click Regenerate to produce a fresh 6-digit code.","red"); return }
   const btn = document.getElementById("cs-btn");
   btn.disabled=true; btn.innerHTML='<span class="spin"></span>Creating...';
   const key = "sessions/"+date.replace(/-/g,"");
@@ -578,10 +653,11 @@ async function createSession(){
     const existing = await fbGet("/"+key);
     if(existing){ msg("cs-msg","A session for "+date+" already exists. Open it from All Sessions.","amber"); return }
     const {activeFrom, activeUntil} = lagosDayBounds(date);
-    await fbPut("/"+key,{ date, name: name||date, notes, activeFrom, activeUntil, submissions:{} });
+    await fbPut("/"+key,{ date, name: name||date, notes, activeFrom, activeUntil, reviewerCode, status:"pending", submissions:{} });
     msg("cs-msg","Session created for "+date+"! Share the taster form with your inspectors.","green");
     document.getElementById("cs-name").value="";
     document.getElementById("cs-notes").value="";
+    regenerateCreateCode(true);
   }catch(e){ msg("cs-msg","Error: "+e.message,"red") }
   finally{ btn.disabled=false; btn.textContent="Create session" }
 }
@@ -606,18 +682,47 @@ function buildSessionRow(key, s, compact){
   const subs = s.submissions ? Object.keys(s.submissions).length : 0;
   const today = todayLagos().replace(/-/g,"");
   const isToday = key === today;
+  const status = sessionStatus(s);
+  const statusBadge = status === "approved"
+    ? '<span class="badge green">Approved</span>'
+    : '<span class="badge grey">Pending</span>';
+  const code = s.reviewerCode;
+  const codeBtnId = "rc-btn-"+key;
+  const codeLine = validReviewerCode(code)
+    ? `<div class="row-rev">Reviewer code: <code>${escapeHtml(code)}</code><button class="btn sm" type="button" id="${codeBtnId}" onclick="copyReviewerCode('${escapeHtml(code)}','${codeBtnId}')">Copy</button></div>`
+    : `<div class="row-rev">Reviewer code: <span style="color:var(--text3)">— (legacy)</span></div>`;
+  const approvedLine = (status === "approved" && s.approvedBy)
+    ? `<div class="row-approved">Approved by ${escapeHtml(s.approvedBy)} on ${formatApprovedAt(s.approvedAt)}</div>`
+    : "";
+  const safeName = (s.name||s.date).replace(/'/g,"\\'");
+  const reopenBtn = (status === "approved" && !compact)
+    ? `<button class="btn sm" onclick="reopenSession('sessions/${key}','${safeName}')">Reopen</button>`
+    : "";
   const div = document.createElement("div");
   div.className = "session-row";
   div.innerHTML=`
     <div class="session-info">
-      <h4>${s.name||s.date} ${isToday?'<span class="badge green">Today</span>':''}</h4>
-      <p>Date: ${s.date} &nbsp;&middot;&nbsp; ${subs} submission(s)${s.notes?' &nbsp;&middot;&nbsp; '+s.notes:''}</p>
+      <h4>${escapeHtml(s.name||s.date)} ${statusBadge} ${isToday?'<span class="badge green">Today</span>':''}</h4>
+      <p>Date: ${escapeHtml(s.date)}${s.notes?' &nbsp;&middot;&nbsp; '+escapeHtml(s.notes):''}</p>
+      ${approvedLine}
+      ${codeLine}
+      <p style="margin-top:4px">${subs} submission(s)</p>
     </div>
     <div class="session-actions">
-      <button class="btn sm pri" onclick="quickReport('sessions/${key}','${(s.name||s.date).replace(/'/g,"\\'")}','${s.date}')">Report</button>
-      ${!compact?`<button class="btn sm danger" onclick="deleteSession('sessions/${key}','${(s.name||s.date).replace(/'/g,"\\'")}')">Delete</button>`:''}
+      <button class="btn sm pri" onclick="quickReport('sessions/${key}','${safeName}','${s.date}')">Report</button>
+      ${reopenBtn}
+      ${!compact?`<button class="btn sm danger" onclick="deleteSession('sessions/${key}','${safeName}')">Delete</button>`:''}
     </div>`;
   return div;
+}
+
+async function reopenSession(key, name){
+  if(!confirm('Reopen this session? Reviewer can edit the report again until you approve it next time.')) return;
+  try{
+    await fbPatch("/"+key, { status:"pending", approvedBy:null, approvedAt:null });
+    loadAllSessions();
+    loadDashboard();
+  }catch(e){ alert("Error: "+e.message) }
 }
 
 async function deleteSession(key, name){
