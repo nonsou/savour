@@ -100,6 +100,117 @@ input:focus{outline:none;border-color:var(--blue)}
 .approve-help{font-size:13px;color:var(--text2);margin-bottom:14px;font-style:italic}
 .approve-card .btn.full{max-width:380px;margin:0 auto;display:block}
 .approved-block{font-size:14px;color:var(--green-text);background:var(--green-bg);padding:14px 18px;border-radius:var(--rs);font-weight:500}
+
+/* ── Mobile-only DOM hidden on desktop ── */
+.sec3-mobile{display:none}
+.m-card-hdr{display:none}
+
+/* ── R7 Mobile UX (≤640px) ── */
+@media (max-width:640px){
+  body{font-size:16px;line-height:1.5}
+  .page{padding:1rem .75rem;padding-bottom:max(5rem,calc(3rem + env(safe-area-inset-bottom)))}
+  .hdr{padding:1.25rem 1rem;margin-bottom:1.25rem}
+  .hdr h1{font-size:24px}
+  .hdr p{font-size:14px}
+  .card{padding:1rem .9rem}
+  .card-t{font-size:18px;padding-bottom:10px;margin-bottom:14px}
+  .lbl{font-size:12px}
+
+  /* Inputs: 16px+ font prevents iOS zoom-on-focus; 44px min-height for tap */
+  input[type=text],input[type=tel],input[type=number],input[type=password],input[type=date],select,#rev-name{
+    font-size:16px;min-height:44px;padding:11px 12px
+  }
+  .btn{min-height:44px;padding:11px 18px;font-size:15px}
+  .btn.full{padding:14px;font-size:16px}
+  .btn.sm{min-height:44px;padding:10px 14px;font-size:15px}
+
+  /* Login screen */
+  .login-card{max-width:none;padding:1.25rem 1rem}
+  .login-card .field{margin-bottom:1rem}
+
+  /* Header bar — stack vertically */
+  .review-hdr{flex-direction:column;align-items:stretch;gap:10px;padding:1rem}
+  .rh-left h2{font-size:18px}
+  .rh-left p{font-size:13px}
+  .rh-right{justify-content:space-between;gap:10px}
+  .rh-right .who{font-size:14px}
+
+  .sguide{padding:.9rem 1rem}
+  .sguide-grid{grid-template-columns:1fr}
+  .sguide-item{font-size:14px}
+
+  /* Section 3 — swap desktop table for mobile cards */
+  .sec3-desktop{display:none}
+  .sec3-mobile{display:block}
+  .m-vcard{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--rs);padding:14px 14px;margin-bottom:12px}
+  .m-vcard.m-avg{background:var(--blue-bg);border-left:3px solid var(--blue)}
+  .m-vhead{margin-bottom:10px}
+  .m-vname{font-size:17px;font-weight:700;line-height:1.3;color:var(--text)}
+  .m-vsub{font-size:13px;color:var(--text2);margin-top:2px}
+  .m-vmeta{display:flex;flex-wrap:wrap;gap:14px;font-size:14px;color:var(--text);padding-bottom:10px;margin-bottom:10px;border-bottom:0.5px solid var(--border)}
+  .m-vmeta .m-mlbl{color:var(--text3);font-weight:500}
+  .m-vmeta strong{color:var(--text);font-weight:600}
+  .m-rows{display:flex;flex-direction:column;gap:6px}
+  .m-row{display:flex;align-items:center;gap:12px;min-height:44px}
+  .m-lbl{flex:0 0 40%;font-size:15px;font-weight:500;color:var(--text)}
+  .m-val{flex:1 1 60%;min-width:90px;display:flex;justify-content:flex-end;align-items:center}
+  .m-val select.cell-edit{width:100%;font-size:16px;min-height:44px;padding:8px 12px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);font-family:inherit;cursor:pointer}
+  .m-val select.cell-edit:focus{outline:none;border-color:var(--blue)}
+  .m-val strong{font-size:16px;color:var(--text)}
+  .m-vcard.m-avg .m-rows .m-row{min-height:36px}
+  .m-vtot{margin-top:14px;padding-top:12px;border-top:0.5px solid var(--border);font-size:16px;display:flex;justify-content:space-between;align-items:center}
+  .m-vtot span{color:var(--text2);font-weight:500}
+  .m-vtot strong{font-weight:700;color:var(--text);font-size:17px}
+
+  /* Sections 1/4/5/6 — responsive table → cards */
+  .rtable-resp{font-size:15px}
+  .rtable-resp,
+  .rtable-resp thead,
+  .rtable-resp tbody,
+  .rtable-resp tr,
+  .rtable-resp td{display:block;width:100%}
+  .rtable-resp thead{display:none}
+  .rtable-resp tr{border:0.5px solid var(--border);border-radius:var(--rs);background:var(--bg);padding:12px 14px;margin-bottom:12px}
+  .rtable-resp tr:nth-child(even) td{background:transparent}
+  .rtable-resp td{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border:none;border-bottom:0.5px solid var(--border);font-size:15px;line-height:1.4;min-height:44px;word-break:break-word}
+  .rtable-resp td:last-child{border-bottom:none}
+  .rtable-resp td::before{content:attr(data-label);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);flex-shrink:0;max-width:45%}
+  /* Cells with text/date inputs stack label above full-width value */
+  .rtable-resp td:has(input[type=text]),
+  .rtable-resp td:has(input[type=date]){flex-direction:column;align-items:stretch;gap:6px}
+  .rtable-resp td:has(input[type=text])::before,
+  .rtable-resp td:has(input[type=date])::before{max-width:none}
+  /* Bigger, full-width edit controls inside the responsive table */
+  .rtable-resp td .cell-edit{font-size:16px;min-height:44px;padding:10px 12px;border:0.5px solid var(--border2);background:var(--bg)}
+  .rtable-resp td .cell-edit:focus{outline:none;border-color:var(--blue);background:var(--bg)}
+  /* Radio groups: wrap, larger tap targets */
+  .rtable-resp td:has(.radio-grp){flex-wrap:wrap}
+  .rtable-resp td .radio-grp{flex-wrap:wrap;gap:14px;font-size:15px;color:var(--text);justify-content:flex-end}
+  .rtable-resp td .radio-grp label{padding:8px 4px;min-height:44px;gap:6px}
+  .rtable-resp td .radio-grp input[type=radio]{width:18px;height:18px;margin:0}
+  /* Mobile-only card header (Section 5) */
+  .rtable-resp td.m-card-hdr{display:block;font-size:17px;font-weight:700;color:var(--text);padding:0 0 12px;margin-bottom:8px;border-bottom:0.5px solid var(--border);min-height:0;line-height:1.3}
+  .rtable-resp td.m-card-hdr::before{display:none}
+  /* Hide cells we don't want on mobile (e.g. Section 5 # column) */
+  .rtable-resp td.m-hide{display:none}
+  /* Section 5 Remove button — full-width destructive at bottom of card */
+  .rtable-resp td.m-action-rm{display:block;border-bottom:none;padding:12px 0 0;margin-top:8px;border-top:0.5px solid var(--border)}
+  .rtable-resp td.m-action-rm::before{display:none}
+  .rtable-resp td.m-action-rm .btn-rm{width:100%;min-height:44px;padding:11px;font-size:15px;font-weight:500;background:var(--red-bg);color:var(--red-text);border:0.5px solid var(--red-text);border-radius:var(--rs)}
+  .rtable-resp td.m-action-rm .btn-rm:hover{background:var(--red-bg)}
+
+  /* Add action button — full-width, prominent */
+  .action-add{margin-top:12px}
+  .action-add .btn{width:100%;min-height:44px;font-size:15px;font-weight:500;padding:12px}
+
+  /* Approve panel */
+  .approve-card{padding:1.25rem 1rem}
+  .approve-card .btn.full{max-width:none}
+  .approved-block{font-size:15px;line-height:1.5}
+
+  /* Toast — bottom-center, full-width with safe-area */
+  .toast{left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom));padding:12px 16px;font-size:15px;text-align:center}
+}
 </style>
 </head>
 <body>
@@ -533,6 +644,7 @@ function buildReport(session, vendors, categories, loadFailed){
   const subEntries = Object.entries(session.submissions||{}); // [ [subId, sub], ... ]
   const subs = subEntries.map(([,s])=>s);
   const sf = ["taste","aroma","appear","hygiene","environ","storage","safety"];
+  const SF_LABEL = {taste:"Taste", aroma:"Aroma", appear:"Appearance", hygiene:"Hygiene", environ:"Environment", storage:"Storage", safety:"Safety"};
   const MUTE = '<span class="rcell-mute">—</span>';
   const isApproved = session && session.status === "approved";
 
@@ -567,8 +679,8 @@ function buildReport(session, vendors, categories, loadFailed){
 
   h+=`<div class="sguide"><div class="sguide-t">Scoring Guide — Rate each criterion from 1 to 5</div><div class="sguide-grid"><div class="sguide-item sguide-1"><b>1</b>Unacceptable / Failed</div><div class="sguide-item sguide-2"><b>2</b>Below minimum</div><div class="sguide-item sguide-3"><b>3</b>Meets minimum</div><div class="sguide-item sguide-4"><b>4</b>Good</div><div class="sguide-item sguide-5"><b>5</b>Excellent</div></div></div>`;
 
-  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Tasters who submitted</div><table class="rtable"><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Time submitted</th><th>Vendors assessed</th></tr></thead><tbody>`;
-  subs.forEach((s,i)=>{ h+=`<tr><td>${i+1}</td><td><strong>${escapeHtml(s.taster||"")}</strong></td><td>${escapeHtml(s.role||"—")}</td><td>${escapeHtml(s.time||"")}</td><td>${(s.vendors||[]).filter(vendorHasPick).length}</td></tr>` });
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Tasters who submitted</div><table class="rtable rtable-resp"><thead><tr><th>#</th><th>Name</th><th>Role</th><th>Time submitted</th><th>Vendors assessed</th></tr></thead><tbody>`;
+  subs.forEach((s,i)=>{ h+=`<tr><td data-label="#">${i+1}</td><td data-label="Name"><strong>${escapeHtml(s.taster||"")}</strong></td><td data-label="Role">${escapeHtml(s.role||"—")}</td><td data-label="Time submitted">${escapeHtml(s.time||"")}</td><td data-label="Vendors assessed">${(s.vendors||[]).filter(vendorHasPick).length}</td></tr>` });
   h+=`</tbody></table></div>`;
 
   const vmap={};
@@ -581,11 +693,10 @@ function buildReport(session, vendors, categories, loadFailed){
     });
   });
 
-  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 3 — Vendor assessment</div><table class="rtable"><thead><tr><th>Vendor</th><th>Cat.</th><th>Taster</th><th>Attend.</th><th>Taste</th><th>Aroma</th><th>Appear.</th><th>Hygiene</th><th>Environ.</th><th>Storage</th><th>Safety</th><th>Total</th></tr></thead><tbody>`;
-  let sn=1;
-  Object.values(vmap).forEach(vd=>{
+  // Pre-compute per-vendor totals + averages so desktop table and mobile cards share them
+  const vendorList = Object.values(vmap).map(vd=>{
     const groupMax = maxFor(vd.entries[0]);
-    const avg={};
+    const avg = {};
     sf.forEach(f=>{
       const ns = vd.entries.map(e=>parseFloat(e[f])).filter(n=>!isNaN(n));
       avg[f] = ns.length ? (ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1) : null;
@@ -593,6 +704,14 @@ function buildReport(session, vendors, categories, loadFailed){
     const avgNums = sf.map(f=>avg[f]).filter(v=>v!==null).map(parseFloat);
     const avgTot = avgNums.reduce((a,b)=>a+b,0).toFixed(1);
     const avgCell = avgNums.length ? `${avgTot}/${groupMax} · ${Math.round(parseFloat(avgTot)/groupMax*100)}%` : "—";
+    return { vd, groupMax, avg, avgCell };
+  });
+
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 3 — Vendor assessment</div>`;
+  // Desktop table (hidden on ≤640px via CSS)
+  h+=`<table class="rtable sec3-desktop"><thead><tr><th>Vendor</th><th>Cat.</th><th>Taster</th><th>Attend.</th><th>Taste</th><th>Aroma</th><th>Appear.</th><th>Hygiene</th><th>Environ.</th><th>Storage</th><th>Safety</th><th>Total</th></tr></thead><tbody>`;
+  let sn=1;
+  vendorList.forEach(({vd, avg, avgCell})=>{
     vd.entries.forEach((e,ei)=>{
       const max = maxFor(e);
       const tot = sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
@@ -604,7 +723,42 @@ function buildReport(session, vendors, categories, loadFailed){
     });
     h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td>${sf.map(f=>`<td><strong>${avg[f]===null?MUTE:avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
   });
-  h+=`</tbody></table></div>`;
+  h+=`</tbody></table>`;
+
+  // Mobile card layout (hidden on >640px via CSS). One m-vcard per entry,
+  // plus a m-avg card per vendor when 2+ entries. Reuses scoreSelect() so
+  // edit handlers behave identically to the desktop table.
+  h+=`<div class="sec3-mobile">`;
+  let mn=1;
+  vendorList.forEach(({vd, avg, avgCell})=>{
+    const num = mn++;
+    vd.entries.forEach(e=>{
+      const max = maxFor(e);
+      const tot = sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
+      const hasN = sf.some(f=>!isNaN(parseFloat(e[f])));
+      const rows = sf.filter(f=>(f in e)).map(f=>
+        `<div class="m-row"><span class="m-lbl">${SF_LABEL[f]}</span><span class="m-val">${scoreSelect(e,f)}</span></div>`
+      ).join("");
+      h+=`<div class="m-vcard">
+        <div class="m-vhead"><div class="m-vname">${num}. ${escapeHtml(vd.display)}</div><div class="m-vsub">${escapeHtml(vd.cat||"—")}</div></div>
+        <div class="m-vmeta"><span><span class="m-mlbl">Taster:</span> <strong>${escapeHtml(e.taster||"—")}</strong></span><span><span class="m-mlbl">Attendance:</span> <strong>${escapeHtml(e.att||"—")}</strong></span></div>
+        <div class="m-rows">${rows}</div>
+        <div class="m-vtot"><span>Total</span><strong>${hasN ? tot+"/"+max+" · "+Math.round(tot/max*100)+"%" : "—"}</strong></div>
+      </div>`;
+    });
+    if(vd.entries.length >= 2){
+      const e0 = vd.entries[0];
+      const avgRows = sf.filter(f=>(f in e0)).map(f=>
+        `<div class="m-row"><span class="m-lbl">${SF_LABEL[f]}</span><span class="m-val"><strong>${avg[f]===null?'—':avg[f]}</strong></span></div>`
+      ).join("");
+      h+=`<div class="m-vcard m-avg">
+        <div class="m-vhead"><div class="m-vname">${num}. ${escapeHtml(vd.display)}</div><div class="m-vsub">Average of ${vd.entries.length} tasters</div></div>
+        <div class="m-rows">${avgRows}</div>
+        <div class="m-vtot"><span>Total</span><strong>${avgCell}</strong></div>
+      </div>`;
+    }
+  });
+  h+=`</div></div>`;
 
   // Section 4 — feedback (text inputs + radio groups; plain text when approved)
   const fbText = (e, field) => {
@@ -618,13 +772,13 @@ function buildReport(session, vendors, categories, loadFailed){
     const grpName = `r-${e._subId}-${e._vIdx}-${field}`;
     return `<div class="radio-grp">` + options.map(o=>`<label><input type="radio" name="${grpName}" value="${escapeHtml(o)}"${o===cur?" checked":""} onchange="saveField('${e._subId}', ${e._vIdx}, '${field}', this.value)">${escapeHtml(o)}</label>`).join("") + `</div>`;
   };
-  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 4 — Feedback &amp; observations</div><table class="rtable"><thead><tr><th>Vendor</th><th>Taster</th><th>Sampled product</th><th>Customer feedback</th><th>Observations</th><th>Follow-up?</th><th>Prev. resolved?</th></tr></thead><tbody>`;
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 4 — Feedback &amp; observations</div><table class="rtable rtable-resp"><thead><tr><th>Vendor</th><th>Taster</th><th>Sampled product</th><th>Customer feedback</th><th>Observations</th><th>Follow-up?</th><th>Prev. resolved?</th></tr></thead><tbody>`;
   Object.values(vmap).forEach(vd=>{
     vd.entries.forEach(e=>{
-      h+=`<tr><td><strong>${e._display}</strong></td><td>${escapeHtml(e.taster||"")}</td>`;
-      h+=`<td>${fbText(e,"sample")}</td><td>${fbText(e,"cust")}</td><td>${fbText(e,"obs")}</td>`;
-      h+=`<td>${fbRadio(e,"fu",["Yes","No"])}</td>`;
-      h+=`<td>${fbRadio(e,"pi",["Yes","No","N/A"])}</td>`;
+      h+=`<tr><td data-label="Vendor"><strong>${e._display}</strong></td><td data-label="Taster">${escapeHtml(e.taster||"")}</td>`;
+      h+=`<td data-label="Sampled product">${fbText(e,"sample")}</td><td data-label="Customer feedback">${fbText(e,"cust")}</td><td data-label="Observations">${fbText(e,"obs")}</td>`;
+      h+=`<td data-label="Follow-up?">${fbRadio(e,"fu",["Yes","No"])}</td>`;
+      h+=`<td data-label="Prev. resolved?">${fbRadio(e,"pi",["Yes","No","N/A"])}</td>`;
       h+=`</tr>`;
     });
   });
@@ -656,18 +810,20 @@ function buildReport(session, vendors, categories, loadFailed){
   h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 5 — Actions &amp; follow-ups</div>`;
   if(allA.length){
     const headExtra = isApproved ? "" : "<th></th>";
-    h+=`<table class="rtable"><thead><tr><th>#</th><th>Vendor</th><th>Raised by</th><th>Issue</th><th>Action</th><th>Deadline</th><th>Officer</th>${headExtra}</tr></thead><tbody>`;
+    h+=`<table class="rtable rtable-resp"><thead><tr><th>#</th><th>Vendor</th><th>Raised by</th><th>Issue</th><th>Action</th><th>Deadline</th><th>Officer</th>${headExtra}</tr></thead><tbody>`;
     allA.forEach((a,i)=>{
+      const hdrText = (a.vendor||"").trim() || "New action";
       h+=`<tr>`;
-      h+=`<td>${i+1}</td>`;
-      h+=`<td>${aText(a,"vendor")}</td>`;
-      h+=`<td>${escapeHtml(a.taster||"")}</td>`;
-      h+=`<td>${aText(a,"issue")}</td>`;
-      h+=`<td>${aText(a,"action")}</td>`;
-      h+=`<td>${aDate(a,"deadline")}</td>`;
-      h+=`<td>${aText(a,"officer")}</td>`;
+      h+=`<td class="m-card-hdr">${escapeHtml(hdrText)}</td>`;
+      h+=`<td data-label="#" class="m-hide">${i+1}</td>`;
+      h+=`<td data-label="Vendor">${aText(a,"vendor")}</td>`;
+      h+=`<td data-label="Raised by">${escapeHtml(a.taster||"")}</td>`;
+      h+=`<td data-label="Issue">${aText(a,"issue")}</td>`;
+      h+=`<td data-label="Action">${aText(a,"action")}</td>`;
+      h+=`<td data-label="Deadline">${aDate(a,"deadline")}</td>`;
+      h+=`<td data-label="Officer">${aText(a,"officer")}</td>`;
       if(!isApproved){
-        h+=`<td><button class="btn-rm" onclick="removeAction('${a._subId}', ${a._aIdx})">Remove</button></td>`;
+        h+=`<td class="m-action-rm"><button class="btn-rm" onclick="removeAction('${a._subId}', ${a._aIdx})">Remove</button></td>`;
       }
       h+=`</tr>`;
     });
@@ -680,8 +836,8 @@ function buildReport(session, vendors, categories, loadFailed){
   }
   h+=`</div>`;
 
-  h+=`<div><div class="card-t" style="font-size:13px">Section 6 — Sign-off</div><table class="rtable"><thead><tr><th>Inspector</th><th>Role</th><th>Time submitted</th></tr></thead><tbody>`;
-  subs.forEach(s=>{ h+=`<tr><td><strong>${escapeHtml(s.taster||"")}</strong></td><td>${escapeHtml(s.role||"—")}</td><td>${escapeHtml(s.time||"")}</td></tr>` });
+  h+=`<div><div class="card-t" style="font-size:13px">Section 6 — Sign-off</div><table class="rtable rtable-resp"><thead><tr><th>Inspector</th><th>Role</th><th>Time submitted</th></tr></thead><tbody>`;
+  subs.forEach(s=>{ h+=`<tr><td data-label="Inspector"><strong>${escapeHtml(s.taster||"")}</strong></td><td data-label="Role">${escapeHtml(s.role||"—")}</td><td data-label="Time submitted">${escapeHtml(s.time||"")}</td></tr>` });
   h+=`</tbody></table></div></div>`;
 
   // R5 — Approve panel as a separate card below the report
