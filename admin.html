@@ -225,6 +225,9 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
         <div class="nav-item" onclick="showPanel('vendors')">
           <span class="nav-icon">&#127828;</span> Vendors
         </div>
+        <div class="nav-item" onclick="showPanel('reviewers')">
+          <span class="nav-icon">&#128100;</span> Reviewers
+        </div>
       </div>
       <div class="nav-section">
         <div class="nav-label">Reports</div>
@@ -368,6 +371,29 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
         <div class="card">
           <div class="card-t">All vendors <span id="ven-count" class="badge blue">—</span></div>
           <div id="ven-list"><div class="loading-state">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- ── Reviewers ── -->
+      <div class="panel" id="panel-reviewers">
+        <div class="page-title">Reviewers</div>
+        <div class="page-sub">Manage the reviewers who can sign in to edit and approve reports</div>
+        <div class="card">
+          <div class="card-t">Add a new reviewer</div>
+          <div class="row2">
+            <div class="field">
+              <label class="lbl">Reviewer name</label>
+              <input type="text" id="rev-name-add" placeholder="e.g. Pat Williams" onkeydown="if(event.key==='Enter')addReviewer()">
+            </div>
+            <div class="field" style="display:flex;align-items:flex-end">
+              <button class="btn pri full" id="rev-add-btn" onclick="addReviewer()">Add reviewer</button>
+            </div>
+          </div>
+          <div id="rev-msg" class="msg"></div>
+        </div>
+        <div class="card">
+          <div class="card-t">All reviewers <span id="rev-count" class="badge blue">—</span></div>
+          <div id="rev-list"><div class="loading-state">Loading...</div></div>
         </div>
       </div>
 
@@ -534,6 +560,7 @@ function showPanel(name){
   if(name==="create-session") regenerateCreateCode(true);
   if(name==="categories") loadCategories();
   if(name==="vendors") loadVendors();
+  if(name==="reviewers") loadReviewers();
   if(name==="reports") loadReportSelector();
   if(name==="settings"){ document.getElementById("db-url-display").textContent = DB; }
 }
@@ -1239,6 +1266,155 @@ async function restoreVendor(id){
   try{
     await fbPatch("/vendors/"+id, { deleted: false });
     loadVendors();
+  }catch(e){ alert("Error: "+e.message) }
+}
+
+// ═══════════════════════════════════════════════════
+// REVIEWERS
+// ═══════════════════════════════════════════════════
+let revCache = {};
+let showDeletedRevs = false;
+
+function findDuplicateReviewer(name, excludeId){
+  const n = name.trim().toLowerCase();
+  for(const [id,r] of Object.entries(revCache)){
+    if(!r || r.deleted) continue;
+    if(id === excludeId) continue;
+    if((r.name||"").trim().toLowerCase() === n) return id;
+  }
+  return null;
+}
+
+async function loadReviewers(){
+  const list = document.getElementById("rev-list");
+  list.innerHTML = '<div class="loading-state">Loading...</div>';
+  try{
+    const data = await fbGet("/reviewers");
+    revCache = data || {};
+    const all = Object.entries(revCache).filter(([id,r])=>!!r);
+    const active = all.filter(([id,r])=>!r.deleted);
+    const deleted = all.filter(([id,r])=>r.deleted);
+    document.getElementById("rev-count").textContent = active.length;
+    renderDeletedToggle("rev", deleted.length, showDeletedRevs, "toggleDeletedRevs");
+    const rows = showDeletedRevs ? all : active;
+    if(rows.length === 0){
+      list.innerHTML = '<div class="loading-state">No reviewers yet. Add your first one above.</div>';
+      return;
+    }
+    rows.sort((a,b)=>{
+      if((a[1].deleted?1:0) !== (b[1].deleted?1:0)) return (a[1].deleted?1:0) - (b[1].deleted?1:0);
+      return (a[1].name||"").localeCompare(b[1].name||"");
+    });
+    list.innerHTML = "";
+    rows.forEach(([id,r])=>list.appendChild(buildReviewerRow(id, r)));
+  }catch(e){
+    list.innerHTML = '<div class="loading-state" style="color:var(--red-text)">Error: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+function toggleDeletedRevs(){ showDeletedRevs = !showDeletedRevs; loadReviewers(); }
+
+function buildReviewerRow(id, r){
+  const div = document.createElement("div");
+  div.className = "session-row";
+  div.id = "rev-row-"+id;
+  if(r.deleted) div.style.opacity = "0.55";
+  const deletedTag = r.deleted ? ' <span style="background:#e5e7eb;color:#6b7280;font-size:11px;padding:2px 6px;border-radius:3px;font-weight:500;margin-left:6px">Deleted</span>' : '';
+  const sub = r.deleted ? 'Soft-deleted — restore to bring back to the login dropdown.' : 'Can sign in to edit and approve reports.';
+  const editBtn = r.deleted ? '' : `<button class="btn sm" onclick="startReviewerEdit('${id}')">Edit</button>`;
+  const actionBtn = r.deleted
+    ? `<button class="btn sm pri" onclick="restoreReviewer('${id}')">Restore</button>`
+    : `<button class="btn sm danger" onclick="deleteReviewer('${id}')">Delete</button>`;
+  div.innerHTML = `
+    <div class="session-info" style="flex:1">
+      <h4>${escapeHtml(r.name)}${deletedTag}</h4>
+      <p>${sub}</p>
+    </div>
+    <div class="session-actions">${editBtn}${actionBtn}</div>`;
+  return div;
+}
+
+async function addReviewer(){
+  const input = document.getElementById("rev-name-add");
+  const name = input.value.trim();
+  if(!name){ msg("rev-msg","Please enter a reviewer name.","amber"); return }
+  if(findDuplicateReviewer(name, null)){
+    msg("rev-msg","A reviewer called \""+name+"\" already exists.","red"); return;
+  }
+  const btn = document.getElementById("rev-add-btn");
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Adding...';
+  try{
+    const id = "r_" + Date.now();
+    await fbPut("/reviewers/"+id, { name, deleted: false, createdAt: Date.now() });
+    input.value = "";
+    msg("rev-msg","Added \""+name+"\".","green");
+    loadReviewers();
+  }catch(e){ msg("rev-msg","Error: "+e.message,"red") }
+  finally{ btn.disabled = false; btn.textContent = "Add reviewer" }
+}
+
+function startReviewerEdit(id){
+  const r = revCache[id];
+  if(!r || r.deleted) return;
+  const row = document.getElementById("rev-row-"+id);
+  if(!row || row.dataset.editing === "1") return;
+  row.dataset.editing = "1";
+  row.innerHTML = `
+    <div style="flex:1;width:100%">
+      <div class="field" style="margin-bottom:0">
+        <label class="lbl">Reviewer name</label>
+        <input type="text" id="rev-edit-name-${id}" value="${escapeHtml(r.name||"")}">
+      </div>
+      <div id="rev-edit-msg-${id}" class="msg"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn pri sm" onclick="saveReviewerEdit('${id}')">Save</button>
+        <button class="btn sm" onclick="cancelReviewerEdit('${id}')">Cancel</button>
+      </div>
+    </div>`;
+  document.getElementById("rev-edit-name-"+id).focus();
+}
+
+function cancelReviewerEdit(id){
+  const row = document.getElementById("rev-row-"+id);
+  if(row) row.dataset.editing = "";
+  loadReviewers();
+}
+
+async function saveReviewerEdit(id){
+  const r = revCache[id];
+  if(!r) return;
+  const newName = (document.getElementById("rev-edit-name-"+id)?.value || "").trim();
+  const errId = "rev-edit-msg-"+id;
+  if(!newName){ msg(errId,"Please enter a reviewer name.","red"); return; }
+  if(findDuplicateReviewer(newName, id)){
+    msg(errId,'A reviewer called "'+newName+'" already exists.',"red"); return;
+  }
+  try{
+    await fbPatch("/reviewers/"+id, { name: newName });
+    loadReviewers();
+  }catch(e){ msg(errId,"Error: "+e.message,"red") }
+}
+
+async function deleteReviewer(id){
+  const r = revCache[id];
+  if(!r) return;
+  if(!confirm("Delete reviewer \""+r.name+"\"? Past approvals keep their snapshotted name. The reviewer just disappears from the login dropdown.")) return;
+  try{
+    await fbPatch("/reviewers/"+id, { deleted: true });
+    loadReviewers();
+  }catch(e){ alert("Error: "+e.message) }
+}
+
+async function restoreReviewer(id){
+  const r = revCache[id];
+  if(!r) return;
+  if(findDuplicateReviewer(r.name, id)){
+    alert("Cannot restore — a reviewer called \""+r.name+"\" already exists. Rename or delete the existing one first.");
+    return;
+  }
+  try{
+    await fbPatch("/reviewers/"+id, { deleted: false });
+    loadReviewers();
   }catch(e){ alert("Error: "+e.message) }
 }
 
