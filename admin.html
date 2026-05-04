@@ -111,6 +111,8 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 .report-warn{background:var(--amber-bg);color:var(--amber-text);border-radius:var(--rs);padding:9px 13px;font-size:12px;margin:0 0 12px}
 .report-approval-stamp{display:flex;align-items:center;gap:10px;background:var(--green-bg);color:var(--green-text);border:0.5px solid var(--green);border-radius:var(--rs);padding:10px 14px;margin:0 0 14px;font-size:13px;font-weight:500;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .report-approval-stamp .approval-badge{display:inline-block;background:var(--green);color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;letter-spacing:.04em;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.report-toolbar{display:flex;justify-content:flex-end;margin:0 0 1rem}
+.report-toolbar .btn.sm{font-size:12px;padding:6px 12px}
 
 /* ── Settings ──────────────────────────────── */
 .setting-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1rem 0;border-bottom:0.5px solid var(--border)}
@@ -157,7 +159,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   .stats-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:480px){.sguide-grid{grid-template-columns:1fr}}
-@media print{.topbar,.sidebar,.session-actions,.btn{display:none!important}.main{padding:0}.sguide{break-inside:avoid}.rcell-mute{color:#999!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-warn{display:none!important}.report-approval-stamp{break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-approval-stamp .approval-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+@media print{.topbar,.sidebar,.session-actions,.btn{display:none!important}.main{padding:0}.sguide{break-inside:avoid}.rcell-mute{color:#999!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-warn{display:none!important}.report-toolbar{display:none!important}.report-approval-stamp{break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-approval-stamp .approval-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -613,15 +615,29 @@ function formatApprovedAt(ms){
 
 const ORIGINAL_TITLE = document.title;
 function sanitizeForTitle(s){ return String(s==null?"":s).replace(/[\x00-\x1f\x7f]/g,"").trim(); }
-function reportTitle(session){
+function reportTitle(session, anonymous){
   const name = sanitizeForTitle(session && session.name) || sanitizeForTitle(session && session.date) || "Inspection report";
   const date = sanitizeForTitle(session && session.date) || new Date().toISOString().slice(0,10);
-  return name + " \u2014 " + date;
+  const base = name + " \u2014 " + date;
+  return anonymous ? base + " \u2014 anonymous" : base;
 }
 function restoreTitle(){ document.title = ORIGINAL_TITLE; }
 function approvalStampHtml(session){
   if(!session || session.status !== "approved" || !session.approvedBy) return "";
   return `<div class="report-approval-stamp"><span class="approval-badge">\u2713 APPROVED</span><span>Approved by ${escapeHtml(session.approvedBy)} on ${formatApprovedAt(session.approvedAt)}</span></div>`;
+}
+
+// R9 — anonymous-mode toggle. State is in-memory only; resets to true (show names)
+// each time generateReport() loads a new session.
+let currentReportSession = null;
+let lastReportVendors = {}, lastReportCategories = {}, lastReportLoadFailed = false;
+let showTasterNames = true;
+function toggleTasterNames(){
+  if(!currentReportSession) return;
+  showTasterNames = !showTasterNames;
+  const out = document.getElementById("report-output");
+  out.innerHTML = buildReport(currentReportSession, lastReportVendors, lastReportCategories, lastReportLoadFailed, showTasterNames);
+  document.title = reportTitle(currentReportSession, !showTasterNames);
 }
 
 function sessionStatus(s){
@@ -1489,9 +1505,14 @@ async function generateReport(){
     }
     const s = await fbGet("/"+sel.value);
     if(!s||!s.submissions||Object.keys(s.submissions).length===0){ out.innerHTML='<div class="loading-state">No submissions found for this session.</div>'; return }
-    out.innerHTML = buildReport(s, vendors, categories, loadFailed);
+    // R9 — cache for in-place re-renders by toggleTasterNames(); reset to default
+    // (show names) every time a new report is generated.
+    currentReportSession = s;
+    lastReportVendors = vendors; lastReportCategories = categories; lastReportLoadFailed = loadFailed;
+    showTasterNames = true;
+    out.innerHTML = buildReport(s, vendors, categories, loadFailed, showTasterNames);
     printBtn.style.display="block";
-    document.title = reportTitle(s);
+    document.title = reportTitle(s, !showTasterNames);
   }catch(e){ out.innerHTML='<div class="loading-state" style="color:var(--red-text)">Error: '+e.message+'</div>' }
 }
 
@@ -1526,8 +1547,9 @@ function vendorGroupKey(v){
   return "nm:"+(v.name||"").trim().toLowerCase();
 }
 
-function buildReport(session, vendors, categories, loadFailed){
+function buildReport(session, vendors, categories, loadFailed, showTasterNames){
   vendors = vendors || {}; categories = categories || {};
+  if(showTasterNames === undefined) showTasterNames = true;
   const subs = Object.values(session.submissions||{});
   // sf is the canonical score-key order shared with the taster form. Position is
   // significant because it parallels SF_TO_CRIT below.
@@ -1560,6 +1582,9 @@ function buildReport(session, vendors, categories, loadFailed){
     h+=`<div class="report-warn">Couldn't load full category data — some totals may show as /35 by default. Try refreshing.</div>`;
   }
 
+  // R9 — anonymous-mode toggle (admin-only)
+  h+=`<div class="report-toolbar"><button type="button" class="btn sm" onclick="toggleTasterNames()">${showTasterNames ? "Hide taster names" : "Show taster names"}</button></div>`;
+
   // Scoring guide
   h+=`<div class="sguide"><div class="sguide-t">Scoring Guide — Rate each criterion from 1 to 5</div><div class="sguide-grid"><div class="sguide-item sguide-1"><b>1</b>Unacceptable / Failed</div><div class="sguide-item sguide-2"><b>2</b>Below minimum</div><div class="sguide-item sguide-3"><b>3</b>Meets minimum</div><div class="sguide-item sguide-4"><b>4</b>Good</div><div class="sguide-item sguide-5"><b>5</b>Excellent</div></div></div>`;
 
@@ -1578,7 +1603,7 @@ function buildReport(session, vendors, categories, loadFailed){
   }) });
 
   // Section 3
-  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 3 — Vendor assessment</div><table class="rtable"><thead><tr><th>Vendor</th><th>Cat.</th><th>Taster</th><th>Attend.</th><th>Taste</th><th>Aroma</th><th>Appear.</th><th>Hygiene</th><th>Environ.</th><th>Storage</th><th>Safety</th><th>Total</th></tr></thead><tbody>`;
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 3 — Vendor assessment</div><table class="rtable"><thead><tr><th>Vendor</th><th>Cat.</th>${showTasterNames?`<th>Taster</th>`:``}<th>Attend.</th><th>Taste</th><th>Aroma</th><th>Appear.</th><th>Hygiene</th><th>Environ.</th><th>Storage</th><th>Safety</th><th>Total</th></tr></thead><tbody>`;
   let sn=1;
   Object.values(vmap).forEach(vd=>{
     // All entries in a group share the same vendorGroupKey → same vendor → same
@@ -1599,17 +1624,20 @@ function buildReport(session, vendors, categories, loadFailed){
       const tot = sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
       const hasN = sf.some(f=>!isNaN(parseFloat(e[f])));
       h+=`<tr>`;if(ei===0)h+=`<td rowspan="${vd.entries.length+1}" style="font-weight:600">${sn++}. ${vd.display}</td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
-      h+=`<td>${escapeHtml(e.taster||"")}</td><td>${escapeHtml(e.att||"")}</td>`;
+      if(showTasterNames) h+=`<td>${escapeHtml(e.taster||"")}</td>`;
+      h+=`<td>${escapeHtml(e.att||"")}</td>`;
       h+=sf.map(f=>`<td>${scoreCell(e,f)}</td>`).join("");
       h+=`<td>${hasN ? tot+"/"+max+" · "+Math.round(tot/max*100)+"%" : "—"}</td></tr>`;
     });
-    h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td>${sf.map(f=>`<td><strong>${avg[f]===null?MUTE:avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
+    // Average row: in default mode the colspan covers Taster + Attend (2 cols);
+    // in anonymous mode there's no Taster column so the label fills only Attend (1 col).
+    h+=`<tr style="background:#e8f0fd"><td colspan="${showTasterNames?2:1}"><strong>Average</strong></td>${sf.map(f=>`<td><strong>${avg[f]===null?MUTE:avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
   });
   h+=`</tbody></table></div>`;
 
   // Section 4
-  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 4 — Feedback &amp; observations</div><table class="rtable"><thead><tr><th>Vendor</th><th>Taster</th><th>Sampled product</th><th>Customer feedback</th><th>Observations</th><th>Follow-up?</th><th>Prev. resolved?</th></tr></thead><tbody>`;
-  Object.values(vmap).forEach(vd=>{ vd.entries.forEach(e=>{ h+=`<tr><td><strong>${e._display}</strong></td><td>${e.taster}</td><td>${e.sample||"—"}</td><td>${e.cust||"—"}</td><td>${e.obs||"—"}</td><td>${e.fu}</td><td>${e.pi}</td></tr>` }) });
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 4 — Feedback &amp; observations</div><table class="rtable"><thead><tr><th>Vendor</th>${showTasterNames?`<th>Taster</th>`:``}<th>Sampled product</th><th>Customer feedback</th><th>Observations</th><th>Follow-up?</th><th>Prev. resolved?</th></tr></thead><tbody>`;
+  Object.values(vmap).forEach(vd=>{ vd.entries.forEach(e=>{ h+=`<tr><td><strong>${e._display}</strong></td>${showTasterNames?`<td>${escapeHtml(e.taster||"")}</td>`:``}<td>${e.sample||"—"}</td><td>${e.cust||"—"}</td><td>${e.obs||"—"}</td><td>${e.fu}</td><td>${e.pi}</td></tr>` }) });
   h+=`</tbody></table></div>`;
 
   // Section 5 – actions
