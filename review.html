@@ -100,6 +100,9 @@ input:focus{outline:none;border-color:var(--blue)}
 .approve-help{font-size:13px;color:var(--text2);margin-bottom:14px;font-style:italic}
 .approve-card .btn.full{max-width:380px;margin:0 auto;display:block}
 .approved-block{font-size:14px;color:var(--green-text);background:var(--green-bg);padding:14px 18px;border-radius:var(--rs);font-weight:500}
+.report-approval-stamp{display:flex;align-items:center;gap:10px;background:var(--green-bg);color:var(--green-text);border:0.5px solid var(--green);border-radius:var(--rs);padding:10px 14px;margin:0 0 14px;font-size:13px;font-weight:500;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.report-approval-stamp .approval-badge{display:inline-block;background:var(--green);color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;letter-spacing:.04em;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{.review-hdr,.approve-card,.toast,.btn{display:none!important}.page{padding:0}.rcell-mute{color:#999!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-approval-stamp{break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-approval-stamp .approval-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 
 /* ── Mobile-only DOM hidden on desktop ── */
 .sec3-mobile{display:none}
@@ -403,6 +406,7 @@ function swapToReport(){
 }
 
 function signOut(){
+  restoreTitle();
   reviewerName = "";
   sessionKey = "";
   sessionData = null;
@@ -446,6 +450,7 @@ async function loadReport(){
   document.getElementById("rh-date").textContent = session.date ? "Date: "+session.date : "";
   updateHeader();
   out.innerHTML = buildReport(session, vendors, categories, loadFailed);
+  document.title = reportTitle(session);
 }
 
 function formatApprovedAt(ms){
@@ -453,6 +458,19 @@ function formatApprovedAt(ms){
   if(isNaN(d.getTime())) return "";
   const mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return d.getDate() + " " + mo[d.getMonth()] + " " + d.getFullYear();
+}
+
+const ORIGINAL_TITLE = document.title;
+function sanitizeForTitle(s){ return String(s==null?"":s).replace(/[\x00-\x1f\x7f]/g,"").trim(); }
+function reportTitle(session){
+  const name = sanitizeForTitle(session && session.name) || sanitizeForTitle(session && session.date) || "Inspection report";
+  const date = sanitizeForTitle(session && session.date) || new Date().toISOString().slice(0,10);
+  return name + " \u2014 " + date;
+}
+function restoreTitle(){ document.title = ORIGINAL_TITLE; }
+function approvalStampHtml(session){
+  if(!session || session.status !== "approved" || !session.approvedBy) return "";
+  return `<div class="report-approval-stamp"><span class="approval-badge">\u2713 APPROVED</span><span>Approved by ${escapeHtml(session.approvedBy)} on ${formatApprovedAt(session.approvedAt)}</span></div>`;
 }
 
 function updateHeader(){
@@ -835,6 +853,9 @@ function buildReport(session, vendors, categories, loadFailed){
     h+=`<div class="action-add"><button class="btn sm" onclick="addAction('${addSubId}')">+ Add action</button></div>`;
   }
   h+=`</div>`;
+
+  // R8 — approval stamp (only when status === "approved" + approvedBy populated)
+  h+=approvalStampHtml(session);
 
   h+=`<div><div class="card-t" style="font-size:13px">Section 6 — Sign-off</div><table class="rtable rtable-resp"><thead><tr><th>Inspector</th><th>Role</th><th>Time submitted</th></tr></thead><tbody>`;
   subs.forEach(s=>{ h+=`<tr><td data-label="Inspector"><strong>${escapeHtml(s.taster||"")}</strong></td><td data-label="Role">${escapeHtml(s.role||"—")}</td><td data-label="Time submitted">${escapeHtml(s.time||"")}</td></tr>` });
