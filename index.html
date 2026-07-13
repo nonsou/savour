@@ -78,14 +78,27 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 <div class="page">
   <div class="hdr">
     <h1>Food vendor inspection</h1>
-    <p id="hdr-sub">Checking for today's session...</p>
+    <p id="hdr-sub">Checking for open sessions...</p>
   </div>
 
   <!-- Loading -->
   <div id="screen-loading">
     <div class="loading-screen">
       <div class="loading-spin"></div>
-      <div>Checking for today's inspection session...</div>
+      <div>Checking for open inspection sessions...</div>
+    </div>
+  </div>
+
+  <!-- Two sessions open (today's and yesterday's) — taster picks one -->
+  <div id="screen-picker" style="display:none">
+    <div class="card">
+      <div class="card-t">Choose your tasting session</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Two inspection sessions are currently open. Pick the one you're submitting an assessment for.</p>
+      <div class="field">
+        <label class="lbl">Session</label>
+        <select id="session-pick"></select>
+      </div>
+      <button class="btn pri full" style="margin-top:6px" onclick="pickSession()">Continue</button>
     </div>
   </div>
 
@@ -237,7 +250,7 @@ async function fbPut(p,d){ const r=await fetch(DB+p+".json",{method:"PUT",header
 function todayLagos(){ return new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}) }
 
 function show(id){
-  ["screen-loading","screen-no-session","screen-no-vendors","screen-error","screen-form","screen-success"].forEach(s=>{
+  ["screen-loading","screen-picker","screen-no-session","screen-no-vendors","screen-error","screen-form","screen-success"].forEach(s=>{
     document.getElementById(s).style.display = s===id ? "block" : "none";
   });
 }
@@ -275,49 +288,100 @@ function msg(id,txt,cls){
   e.style.display=txt?"block":"none";
 }
 
-// ── On load: check for today's session ──────────────
-async function checkTodaySession(){
-  const today = todayLagos(); // YYYY-MM-DD in Africa/Lagos
-  const key = "sessions/" + today.replace(/-/g,"");
+// ── On load: check for open sessions ─────────────────
+// A session dated D is "open" from D 00:00 until D+2 00:00 (48 hours), unless
+// it has been approved (the report is final). Only today's and yesterday's
+// sessions can possibly be open, so we fetch exactly those two keys — never
+// the /sessions collection itself (anonymous reads on it are denied by rules).
 
+// Yesterday relative to a YYYY-MM-DD string. Noon anchor (same pattern as
+// formatDate) so the calendar-day step can't drift across a UTC boundary.
+function yesterdayOf(iso){
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString("en-CA");
+}
+
+// Fetch one dated session. 401/403 from the security rules = not open for
+// anonymous tasters (rules only allow reads inside the session's active
+// window). Anything else (TypeError from fetch when offline, 5xx, JSON parse
+// error) is a real connection problem, reported via `error`.
+async function fetchSessionForDate(iso){
   try{
-    const session = await fbGet("/"+key);
+    const session = await fbGet("/sessions/" + iso.replace(/-/g,""));
+    return { iso, session, error: false };
+  }catch(e){
+    const m = e && e.message || "";
+    const denied = m.startsWith("HTTP 401") || m.startsWith("HTTP 403");
+    return { iso, session: null, error: !denied };
+  }
+}
 
-    if(!session){
-      // Path readable but empty (admin-side / pre-rules-publish state).
+let openByIso = {};
+
+async function checkOpenSessions(){
+  const today = todayLagos(); // YYYY-MM-DD in Africa/Lagos
+  const results = await Promise.all([
+    fetchSessionForDate(today),
+    fetchSessionForDate(yesterdayOf(today))
+  ]);
+  // Both keys are within their 48-hour window by construction; a session is
+  // open if it exists (null = path readable but empty) and isn't approved.
+  const open = results.filter(r => r.session && r.session.status !== "approved");
+
+  if(open.length === 0){
+    if(results.some(r => r.error)){
+      document.getElementById("hdr-sub").textContent = "Connection error";
+      show("screen-error");
+    } else {
       document.getElementById("hdr-sub").textContent = "No active session";
       show("screen-no-session");
-      return;
     }
+    return;
+  }
 
-    // Session found — pull the vendor catalogue before we can render the form
-    sessionKey = key;
+  if(open.length === 1){ await enterSession(open[0]); return; }
+
+  // Two open sessions — let the taster pick. `results` is [today, yesterday],
+  // so `open` is already newest-first and the first option is pre-selected.
+  openByIso = {};
+  open.forEach(r => { openByIso[r.iso] = r; });
+  document.getElementById("session-pick").innerHTML = open.map(r =>
+    `<option value="${escapeHtml(r.iso)}">${escapeHtml((r.session.name || r.iso) + " — " + formatDate(r.iso))}</option>`
+  ).join("");
+  document.getElementById("hdr-sub").textContent = "Choose a session";
+  show("screen-picker");
+}
+
+async function pickSession(){
+  const r = openByIso[document.getElementById("session-pick").value];
+  if(!r) return;
+  show("screen-loading");
+  await enterSession(r);
+}
+
+// Load the chosen/only open session into the form flow. Header and session
+// bar always carry the session's own name AND date, so it's unambiguous
+// which session the taster is submitting to (it may be yesterday's).
+async function enterSession(r){
+  sessionKey = "sessions/" + r.iso.replace(/-/g,"");
+  const title = (r.session.name || r.iso) + " — " + formatDate(r.iso);
+  try{
     await loadVendorsAndCategories();
     if(vendorList.length === 0){
-      document.getElementById("hdr-sub").textContent = (session.name || today) + " — " + formatDate(today);
+      document.getElementById("hdr-sub").textContent = title;
       show("screen-no-vendors");
       return;
     }
-    document.getElementById("hdr-sub").textContent = (session.name || today) + " — " + formatDate(today);
-    document.getElementById("session-label").textContent = "Session: " + (session.name || today);
+    document.getElementById("hdr-sub").textContent = title;
+    document.getElementById("session-label").textContent = "Session: " + title;
     await refreshCount();
     if(vc === 0){ addVendor(); addVendor(); addVendor(); }
     if(ac === 0) addAction();
     show("screen-form");
-
   }catch(e){
-    // 401/403 from the security rules = no active session right now (anon
-    // tasters can only read sessions inside their activeFrom/activeUntil
-    // window). Anything else (TypeError from fetch when offline, 5xx, JSON
-    // parse error) is a real connection problem.
-    const m = e && e.message || "";
-    if(m.startsWith("HTTP 401") || m.startsWith("HTTP 403")){
-      document.getElementById("hdr-sub").textContent = "No active session";
-      show("screen-no-session");
-    } else {
-      document.getElementById("hdr-sub").textContent = "Connection error";
-      show("screen-error");
-    }
+    document.getElementById("hdr-sub").textContent = "Connection error";
+    show("screen-error");
   }
 }
 
@@ -331,7 +395,7 @@ async function refreshCount(){
   try{
     const s = await fbGet("/"+sessionKey);
     const c = s && s.submissions ? Object.keys(s.submissions).length : 0;
-    document.getElementById("session-count").textContent = c + " submission"+(c!==1?"s":"")+" so far today";
+    document.getElementById("session-count").textContent = c + " submission"+(c!==1?"s":"")+" so far";
   }catch(e){}
 }
 
@@ -677,7 +741,7 @@ function resetForNextTaster(){
 }
 
 // ── Boot ─────────────────────────────────────────────
-checkTodaySession();
+checkOpenSessions();
 </script>
 </body>
 </html>
