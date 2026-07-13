@@ -377,10 +377,12 @@ async function attemptLogin(){
       return;
     }
     const now = Date.now();
-    const af = Number(session.activeFrom), au = Number(session.activeUntil);
+    // A session is open for 48 hours from its start (same rule as the taster
+    // page and the database rules). activeUntil is vestigial — never read it.
+    const af = Number(session.activeFrom);
     const codeOk = session.reviewerCode === code;
     const statusOk = (session.status !== "approved");
-    const windowOk = isFinite(af) && isFinite(au) && af <= now && now <= au;
+    const windowOk = isFinite(af) && af <= now && now <= af + 172800000;
     if(!codeOk || !statusOk || !windowOk){
       showLoginMsg(GENERIC_LOGIN_ERR);
       return;
