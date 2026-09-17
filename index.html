@@ -72,6 +72,13 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 .loading-spin{display:inline-block;width:22px;height:22px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:sp .6s linear infinite;margin-bottom:1rem}
 
 @media(max-width:600px){.row2,.score-grid{grid-template-columns:1fr 1fr}}
+.attendance-help{font-size:13px;color:var(--text2);margin:8px 0 14px;line-height:1.5}
+@media(max-width:640px){
+  input[type=text],input[type=date],textarea,select{font-size:16px;min-height:44px}
+  .btn,.dash-btn,.vremove,.att-opt,.yn-opt{min-height:44px}
+  .yn-opt{padding:8px 4px}
+  .row2{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -231,11 +238,29 @@ function applicableCriteriaIndexes(vendorId){
   const cat = categoryLookup[v.categoryId];
   if(!cat || !cat.criteria) return [0,1,2,3,4,5,6];
   const idxs = CRITERIA.map((c,i)=>cat.criteria[c.catKey] ? i : -1).filter(i=>i>=0);
-  if(idxs.length === 0){
+  if(idxs.length === 0 && !cat.criteria.attendance){
     console.warn(`Category "${cat.name||v.categoryId}" has no criteria — defaulting to all 7 for vendor ${v.businessName}`);
     return [0,1,2,3,4,5,6];
   }
   return idxs;
+}
+
+// Attendance is scored only when explicitly enabled; old categories stay unchanged.
+const ATTENDANCE_SCORES = {Early:5, Middle:3, Late:1, Absent:0};
+function scoresAttendance(vendorId){
+  const v = vendorList.find(x=>x.id===vendorId);
+  return !!(v && categoryLookup[v.categoryId]?.criteria?.attendance);
+}
+function attendanceValue(i){ return document.getElementById("va"+i)?.value || ""; }
+function renderAttendance(i){
+  const el = document.getElementById("va"+i);
+  const old = el.value;
+  const scored = scoresAttendance(document.getElementById("vp"+i)?.value);
+  const choices = scored ? [["Early","Early and ready — 5"],["Middle","Around the expected time — 3"],["Late","Late — 1"],["Absent","Absent — 0"]] : [["Present","Present"],["Absent","Absent"]];
+  el.innerHTML = '<option value="">— Select attendance —</option>' + choices.map(([v,t])=>`<option value="${v}">${t}</option>`).join("");
+  el.value = choices.some(([v])=>v===old) ? old : "";
+  document.getElementById("att-help"+i).textContent = scored ? "Judge when the vendor was ready to serve, using the panel’s agreed ready time." : "Select attendance before assessing this vendor.";
+  updateAttendance(i);
 }
 
 function escapeHtml(s){
@@ -419,19 +444,22 @@ function addVendor(){
       <select id="vp${i}" onchange="onVendorPick(${i})">${venOpts}</select>
       <p id="vcat${i}" style="font-size:12px;color:var(--text2);margin-top:4px;min-height:14px"></p>
     </div>
-    <label class="lbl">Attendance</label>
-    <div class="att-row">
-      <label class="att-opt"><input type="radio" name="va${i}" value="Present" onchange="updateAttendance(${i})"> Present</label>
-      <label class="att-opt"><input type="radio" name="va${i}" value="Absent (with notice)" onchange="updateAttendance(${i})"> Absent (notice)</label>
-      <label class="att-opt"><input type="radio" name="va${i}" value="Absent (no notice)" onchange="updateAttendance(${i})"> Absent (no notice)</label>
+    <label class="lbl" for="va${i}">Attendance &amp; punctuality</label>
+    <select id="va${i}" onchange="updateAttendance(${i})"><option value="">— Select attendance —</option></select>
+    <p id="att-help${i}" class="attendance-help"></p>
+    <div id="absence${i}" hidden>
+      <label class="lbl" for="notice${i}">Did they give notice?</label>
+      <select id="notice${i}"><option value="">— Not recorded —</option><option>Yes</option><option>No</option></select>
+      <label class="lbl" for="reason${i}" style="margin-top:10px">Reason / note (optional)</label>
+      <input type="text" id="reason${i}" placeholder="Reason for absence, if known">
     </div>
     <div id="vscores${i}">
       <label class="lbl" style="margin-top:10px">Scores — Rate each criterion from 1 to 5</label>
       <div class="score-grid">
         ${CRITERIA.map((c,j)=>`<div id="vsc${i}${j}"><label class="lbl">${c.label}</label><select id="vs${i}${j}" onchange="calcT(${i})">${opts}</select></div>`).join("")}
       </div>
-      <span class="total-tag" id="vt${i}">Total: — / 35</span>
-    </div>`;
+    </div>
+    <span class="total-tag" id="vt${i}">Total: — / 35</span>`;
   vl.appendChild(vd);
 
   const fd=document.createElement("div"); fd.className="vblock"; fd.id="fblock"+i;
@@ -447,6 +475,7 @@ function addVendor(){
       <div><label class="lbl">Prev. issue resolved?</label><div class="yn-row"><label class="yn-opt"><input type="radio" name="pi${i}" value="Yes"> Yes</label><label class="yn-opt"><input type="radio" name="pi${i}" value="No"> No</label><label class="yn-opt"><input type="radio" name="pi${i}" value="N/A"> N/A</label></div></div>
     </div>`;
   fl.appendChild(fd);
+  renderAttendance(i);
   updateRemoveVisibility();
 }
 
@@ -459,7 +488,9 @@ function captureBlock(i){
   }
   return {
     vendorId: document.getElementById("vp"+i)?.value || "",
-    att: getR("va"),
+    att: attendanceValue(i),
+    notice: document.getElementById("notice"+i)?.value || "",
+    reason: document.getElementById("reason"+i)?.value || "",
     scores,
     fs: document.getElementById("fs"+i)?.value || "",
     fc: document.getElementById("fc"+i)?.value || "",
@@ -472,10 +503,9 @@ function captureBlock(i){
 function restoreBlock(i, s){
   const vp = document.getElementById("vp"+i);
   if(vp && s.vendorId){ vp.value = s.vendorId; onVendorPick(i); }
-  if(s.att){
-    const r = document.querySelector('input[name="va'+i+'"][value="'+s.att+'"]');
-    if(r){ r.checked = true; updateAttendance(i); }
-  }
+  if(s.att) document.getElementById("va"+i).value = s.att;
+  document.getElementById("notice"+i).value = s.notice;
+  document.getElementById("reason"+i).value = s.reason;
   for(let j=0;j<7;j++){
     const el = document.getElementById("vs"+i+j);
     if(el && s.scores[j]) el.value = s.scores[j];
@@ -486,6 +516,7 @@ function restoreBlock(i, s){
   const fo = document.getElementById("fo"+i); if(fo) fo.value = s.fo;
   if(s.fu){ const r = document.querySelector('input[name="fu'+i+'"][value="'+s.fu+'"]'); if(r) r.checked = true; }
   if(s.pi){ const r = document.querySelector('input[name="pi'+i+'"][value="'+s.pi+'"]'); if(r) r.checked = true; }
+  updateAttendance(i);
 }
 
 function removeVendor(i){
@@ -515,14 +546,14 @@ function onVendorPick(i){
     if(catEl) catEl.textContent = "";
     if(fn) fn.textContent = "—";
     applyCriteriaVisibility(i, [0,1,2,3,4,5,6]);
-    calcT(i);
+    renderAttendance(i);
     return;
   }
   const cat = categoryLookup[v.categoryId];
   if(catEl) catEl.textContent = "Category: " + (cat?.name || "—");
   if(fn) fn.textContent = v.businessName + " — " + v.name;
   applyCriteriaVisibility(i, applicableCriteriaIndexes(v.id));
-  calcT(i);
+  renderAttendance(i);
 }
 
 // Hide score cells whose criteria don't apply, and clear their values so a stale
@@ -541,15 +572,19 @@ function applyCriteriaVisibility(i, idxs){
   }
 }
 
-// Absent vendors don't need scores/feedback filled in — hide both blocks so tasters
-// aren't tempted to score a stall that wasn't there. Show them again on Present/unset.
+// Clear hidden assessments, so choosing Absent cannot save stale scores.
 function updateAttendance(i){
-  const att = document.querySelector('input[name="va'+i+'"]:checked')?.value;
-  const absent = att === "Absent (with notice)" || att === "Absent (no notice)";
-  const scores = document.getElementById("vscores"+i);
-  const feedback = document.getElementById("fblock"+i);
-  if(scores) scores.style.display = absent ? "none" : "";
-  if(feedback) feedback.style.display = absent ? "none" : "";
+  const att = attendanceValue(i);
+  const absent = att === "Absent";
+  const assess = !!att && !absent;
+  document.getElementById("absence"+i).hidden = !absent;
+  for(const id of ["vscores"+i,"fblock"+i]) document.getElementById(id).style.display = assess ? "" : "none";
+  document.querySelectorAll(`#vscores${i} select, #fblock${i} input, #fblock${i} textarea`).forEach(el=>{
+    el.disabled = !assess;
+    if(!assess){ if(el.type === "radio") el.checked = false; else el.value = ""; }
+  });
+  if(!absent){ document.getElementById("notice"+i).value = ""; document.getElementById("reason"+i).value = ""; }
+  calcT(i);
 }
 
 function calcT(i){
@@ -562,8 +597,12 @@ function calcT(i){
     const v=parseFloat(raw);
     if(!isNaN(v)){ s+=v; c++; }
   });
-  const max = idxs.length * 5;
+  const att = attendanceValue(i);
+  const scored = scoresAttendance(vid);
+  if(scored && Object.hasOwn(ATTENDANCE_SCORES,att)){ s += ATTENDANCE_SCORES[att]; c++; }
+  const max = (idxs.length + (scored?1:0)) * 5;
   const tag=document.getElementById("vt"+i);
+  if(att === "Absent"){ tag.textContent = (scored ? "Attendance: 0 / 5 · " : "") + "Food assessment: Not assessed"; return; }
   tag.textContent = c>0 ? "Total: "+s+" / "+max : "Total: — / "+max;
 }
 
@@ -599,7 +638,7 @@ async function submitEntry(){
       blockErrors.push(`Vendor ${i}: please select a vendor`);
       continue;
     }
-    const att = document.querySelector('input[name="va'+i+'"]:checked')?.value;
+    const att = attendanceValue(i);
     if(!att){
       const v = vendorList.find(x=>x.id===vid);
       const label = v ? ` (${v.businessName} — ${v.name})` : "";
@@ -611,29 +650,20 @@ async function submitEntry(){
     return;
   }
 
-  // Same vendor selected as Present in two blocks = duplicate. Present + Absent
-  // is allowed (e.g. a vendor was Absent at first then turned up — second row
-  // captures the actual assessment).
-  const seenPresent = {};
+  // One vendor entry per submission, including absent vendors.
+  const seen = new Set();
   for(let i=1;i<=vc;i++){
-    const att = document.querySelector('input[name="va'+i+'"]:checked')?.value;
-    if(att !== "Present") continue;
     const id = document.getElementById("vp"+i).value;
-    if(seenPresent[id]){
-      const v = vendorList.find(x=>x.id===id);
-      const label = v ? `${v.businessName} — ${v.name}` : "this vendor";
-      msg("submit-msg", `You've selected '${label}' as Present in two vendor blocks. Each vendor should only be assessed once per submission.`, "red");
-      return;
-    }
-    seenPresent[id] = true;
+    if(seen.has(id)){ msg("submit-msg","Each vendor can appear only once. Remove the duplicate, or update their attendance if they have arrived.","red"); return; }
+    seen.add(id);
   }
 
   // Require every applicable score picked for every Present vendor. Hidden criteria
   // (those not in the vendor's category) are skipped — only visible blanks are flagged.
   const missing = [];
   for(let i=1;i<=vc;i++){
-    const att = document.querySelector('input[name="va'+i+'"]:checked')?.value;
-    if(att !== "Present") continue;
+    const att = attendanceValue(i);
+    if(!att || att === "Absent") continue;
     const vid = document.getElementById("vp"+i).value;
     const vendor = vendorList.find(x=>x.id===vid);
     const idxs = applicableCriteriaIndexes(vid);
@@ -659,7 +689,7 @@ async function submitEntry(){
   for(let i=1;i<=vc;i++){
     const vid = document.getElementById("vp"+i)?.value || "";
     const v = vendorList.find(x=>x.id===vid);
-    const att = document.querySelector('input[name="va'+i+'"]:checked')?.value || "—";
+    const att = attendanceValue(i) || "—";
     const entry = {
       vendorId: vid,
       vendorName: v ? v.name : "",
@@ -667,23 +697,21 @@ async function submitEntry(){
       categoryName: v ? (categoryLookup[v.categoryId]?.name || "") : "",
       att
     };
-    // Present: write ONLY the applicable criteria (validation guarantees each is 1-5).
-    // Absent/unset: keep historical shape — all 7 keys, blanks → "N/A".
-    if(att === "Present"){
-      applicableCriteriaIndexes(vid).forEach(j=>{
-        entry[CRITERIA[j].dbKey] = document.getElementById("vs"+i+j)?.value || "";
-      });
+    entry.assessmentVersion = 2;
+    entry.criteriaSnapshot = Object.fromEntries(CRITERIA.map((c,j)=>[c.dbKey, applicableCriteriaIndexes(vid).includes(j)]));
+    entry.criteriaSnapshot.attendance = scoresAttendance(vid);
+    if(entry.criteriaSnapshot.attendance) entry.attendance = ATTENDANCE_SCORES[att];
+    if(att === "Absent"){
+      entry.notice = document.getElementById("notice"+i).value;
+      entry.absenceReason = document.getElementById("reason"+i).value.trim();
     } else {
-      for(let j=0;j<7;j++){
-        const raw = document.getElementById("vs"+i+j)?.value || "";
-        entry[CRITERIA[j].dbKey] = raw || "N/A";
-      }
+      applicableCriteriaIndexes(vid).forEach(j=>{ entry[CRITERIA[j].dbKey] = Number(document.getElementById("vs"+i+j).value); });
+      entry.sample = document.getElementById("fs"+i)?.value||"";
+      entry.cust = document.getElementById("fc"+i)?.value||"";
+      entry.obs = document.getElementById("fo"+i)?.value||"";
+      entry.fu = document.querySelector('input[name="fu'+i+'"]:checked')?.value||"—";
+      entry.pi = document.querySelector('input[name="pi'+i+'"]:checked')?.value||"—";
     }
-    entry.sample = document.getElementById("fs"+i)?.value||"";
-    entry.cust   = document.getElementById("fc"+i)?.value||"";
-    entry.obs    = document.getElementById("fo"+i)?.value||"";
-    entry.fu     = document.querySelector('input[name="fu'+i+'"]:checked')?.value||"—";
-    entry.pi     = document.querySelector('input[name="pi'+i+'"]:checked')?.value||"—";
     vendors.push(entry);
   }
 
@@ -710,7 +738,7 @@ async function submitEntry(){
   };
 
   try{
-    const subId = "s" + Date.now();
+    const subId = "s" + crypto.randomUUID();
     await fbPut("/"+sessionKey+"/submissions/"+subId, entry);
     // Show success screen
     document.getElementById("success-msg").textContent = "Your assessment was saved at " + entry.time + ". Thank you, " + taster + ".";
@@ -735,6 +763,8 @@ function resetForNextTaster(){
   ac = 0;
   addAction();
   msg("submit-msg","","");
+  document.getElementById("submit-btn").disabled = false;
+  document.getElementById("submit-btn").textContent = "Submit my assessment";
   refreshCount();
   show("screen-form");
   window.scrollTo(0,0);

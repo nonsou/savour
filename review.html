@@ -214,6 +214,16 @@ input:focus{outline:none;border-color:var(--blue)}
   /* Toast — bottom-center, full-width with safe-area */
   .toast{left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom));padding:12px 16px;font-size:15px;text-align:center}
 }
+
+.attendance-note{font-size:12px;color:var(--text2);line-height:1.5;margin:7px 0 12px}
+.attendance-mobile{margin-bottom:12px}
+.attendance-edit{min-width:165px;max-width:100%}
+.report-average{background:var(--blue-bg)}
+.sec3-desktop{overflow-x:auto}
+@media(max-width:640px){
+  .attendance-mobile select{width:100%;font-size:16px;min-height:44px;padding:10px;border:1px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)}
+  .m-vtot{gap:12px;align-items:flex-start}.m-vtot strong{text-align:right;font-size:15px}
+}
 </style>
 </head>
 <body>
@@ -408,6 +418,8 @@ function swapToReport(){
 }
 
 function signOut(){
+  if(vendorSavesPending || approvalPending){ showToast("Please wait for saving to finish.","err"); return; }
+  vendorSaveFailed = false;
   restoreTitle();
   reviewerName = "";
   sessionKey = "";
@@ -447,11 +459,12 @@ async function loadReport(){
     loadFailed = true;
   }
   sessionData = session;
+  vendorSaveFailed = false;
   lastVendors = vendors; lastCategories = categories; lastLoadFailed = loadFailed;
   document.getElementById("rh-name").textContent = session.name || session.date || "Session";
   document.getElementById("rh-date").textContent = session.date ? "Date: "+session.date : "";
   updateHeader();
-  out.innerHTML = buildReport(session, vendors, categories, loadFailed);
+  out.innerHTML = buildReport(session, vendors, categories, loadFailed, true, true);
   document.title = reportTitle(session);
 }
 
@@ -528,22 +541,59 @@ function normalizeScore(raw){
   return n;
 }
 
-async function saveField(subId, vendorIdx, field, rawValue){
-  if(!sessionKey){ return }
-  const path = "/sessions/"+sessionKey+"/submissions/"+subId+"/vendors/"+vendorIdx+"/"+field;
-  try{
-    await fbPut(path, rawValue);
-    if(sessionData && sessionData.submissions && sessionData.submissions[subId] && sessionData.submissions[subId].vendors && sessionData.submissions[subId].vendors[vendorIdx]){
-      sessionData.submissions[subId].vendors[vendorIdx][field] = rawValue;
-    }
-    showSaved();
-  }catch(e){
-    showSaveError();
-  }
+// Serialize vendor edits: an attendance change must finish before a later score save.
+let vendorSaveQueue = Promise.resolve();
+let vendorSaveFailed = false;
+let vendorSavesPending = 0;
+let approvalPending = false;
+function queueVendorSave(work){
+  if(!sessionKey || sessionData?.status === "approved" || approvalPending) return Promise.resolve();
+  const key = sessionKey;
+  vendorSavesPending++;
+  const result = vendorSaveQueue.then(async()=>{
+    if(sessionKey !== key) throw new Error("Session changed");
+    await work(key);
+  });
+  vendorSaveQueue = result.catch(()=>{ vendorSaveFailed = true; showSaveError(); });
+  return vendorSaveQueue.finally(()=>{ vendorSavesPending--; });
 }
-
+function currentVendor(subId, vendorIdx){ return sessionData?.submissions?.[subId]?.vendors?.[vendorIdx]; }
+async function saveField(subId, vendorIdx, field, rawValue){
+  return queueVendorSave(async key=>{
+    const entry = currentVendor(subId,vendorIdx);
+    if(!entry || isAbsentEntry(entry)) throw new Error("Vendor is not being assessed");
+    if(FOOD_FIELDS.includes(field)){
+      if(!entryFoodFields(entry).includes(field)) throw new Error("Criterion does not apply");
+      if(rawValue !== "" && (!Number.isInteger(rawValue) || rawValue < 1 || rawValue > 5)) throw new Error("Invalid score");
+    }
+    await fbPut("/sessions/"+key+"/submissions/"+subId+"/vendors/"+vendorIdx+"/"+field, rawValue);
+    entry[field] = rawValue;
+    showSaved();
+    if(FOOD_FIELDS.includes(field)) rerenderReport();
+  });
+}
 async function saveScore(subId, vendorIdx, field, rawValue){
-  await saveField(subId, vendorIdx, field, normalizeScore(rawValue));
+  return saveField(subId,vendorIdx,field,rawValue === "" ? "" : Number(rawValue));
+}
+async function saveAttendance(subId, vendorIdx, value){
+  const entry = currentVendor(subId,vendorIdx);
+  if(!entry || entry.assessmentVersion !== 2) return;
+  return queueVendorSave(async key=>{
+    const e = currentVendor(subId,vendorIdx);
+    const allowed = hasAttendanceScore(e) ? ["Early","Middle","Late","Absent"] : ["Present","Absent"];
+    if(!allowed.includes(value)) throw new Error("Invalid attendance");
+    const patch = {att:value,attendance:hasAttendanceScore(e)?ATTENDANCE_POINTS[value]:null};
+    if(value === "Absent"){
+      FOOD_FIELDS.concat(["sample","cust","obs","fu","pi"]).forEach(f=>{patch[f]=null;});
+    } else {
+      patch.notice = null; patch.absenceReason = null;
+      if(isAbsentEntry(e)) entryFoodFields(e).forEach(f=>{patch[f]="";});
+    }
+    // One atomic update: absence and score removal must arrive together.
+    await fbPatch("/sessions/"+key+"/submissions/"+subId+"/vendors/"+vendorIdx,patch);
+    Object.entries(patch).forEach(([f,v])=>{if(v===null) delete e[f]; else e[f]=v;});
+    showSaved(); rerenderReport();
+  });
 }
 
 async function saveAction(subId, actionIdx, field, value){
@@ -602,8 +652,14 @@ const APPROVE_CONFIRM = "Approve this report? You won't be able to edit it after
 const APPROVED_LOCKED_MSG = "This report has been approved. To make further changes, ask an admin to reopen the session.";
 
 async function approveReport(){
-  if(!sessionKey || !sessionData) return;
+  if(!sessionKey || !sessionData || approvalPending) return;
+  if(document.activeElement?.blur) document.activeElement.blur();
+  await vendorSaveQueue;
+  if(vendorSaveFailed){ showToast("A change failed to save. Refresh the report and check it before approving.","err"); return; }
+  const incomplete = Object.values(sessionData.submissions||{}).some(sub=>(sub.vendors||[]).some(e=>e.assessmentVersion===2 && !isAbsentEntry(e) && entrySummary(e).percent===null));
+  if(incomplete){ showToast("Finish all scores for present vendors before approving.","err"); return; }
   if(!confirm(APPROVE_CONFIRM)) return;
+  approvalPending = true;
   const btn = document.getElementById("rev-approve-btn");
   if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Approving…'; }
   const payload = {
@@ -620,7 +676,7 @@ async function approveReport(){
   }catch(e){
     showToast("Approval failed. Refresh and try again.", "err");
     if(btn){ btn.disabled = false; btn.textContent = "Approve report"; }
-  }
+  }finally{ approvalPending = false; }
 }
 
 function rerenderReport(){
@@ -631,7 +687,7 @@ function rerenderReport(){
   // Preserve scroll position so the in-place re-render after approve / action
   // add-or-remove doesn't jump the reviewer to the top of the page.
   const sx = window.scrollX, sy = window.scrollY;
-  out.innerHTML = buildReport(sessionData, lastVendors, lastCategories, lastLoadFailed);
+  out.innerHTML = buildReport(sessionData, lastVendors, lastCategories, lastLoadFailed, true, true);
   updateHeader();
   window.scrollTo(sx, sy);
 }
@@ -659,7 +715,40 @@ function vendorGroupKey(v){
   return "nm:"+(v.name||"").trim().toLowerCase();
 }
 
-function buildReport(session, vendors, categories, loadFailed){
+// Keep these report calculations and buildReport identical in admin.html and review.html.
+const FOOD_FIELDS = ["taste","aroma","appear","hygiene","environ","storage","safety"];
+const ATTENDANCE_POINTS = {Early:5, Middle:3, Late:1, Absent:0};
+const ATTENDANCE_LABELS = {Early:"Early and ready", Middle:"Around the expected time", Late:"Late", Absent:"Absent", Present:"Present"};
+function isAbsentEntry(e){ return e.att === "Absent" || String(e.att||"").startsWith("Absent ("); }
+function hasAttendanceScore(e){ return e.assessmentVersion === 2 && e.criteriaSnapshot?.attendance === true; }
+function entryFoodFields(e){
+  return e.assessmentVersion === 2 && e.criteriaSnapshot ? FOOD_FIELDS.filter(f=>e.criteriaSnapshot[f] === true) : FOOD_FIELDS.filter(f=>f in e);
+}
+function foodScore(e, f){
+  if(isAbsentEntry(e) || !entryFoodFields(e).includes(f) || e[f] === "" || e[f] == null) return null;
+  const n = Number(e[f]);
+  return Number.isFinite(n) && n >= 1 && n <= 5 ? n : null;
+}
+function attendanceScore(e){
+  return hasAttendanceScore(e) && Object.hasOwn(ATTENDANCE_POINTS,e.att) ? ATTENDANCE_POINTS[e.att] : null;
+}
+function attendanceLabel(e){
+  const label = ATTENDANCE_LABELS[e.att] || e.att || "Not recorded";
+  const score = attendanceScore(e);
+  return label + (score === null ? "" : " · " + score + "/5");
+}
+function entrySummary(e){
+  if(isAbsentEntry(e)) return {text:"Food assessment: Not assessed",percent:null};
+  const fields = entryFoodFields(e);
+  const vals = fields.map(f=>foodScore(e,f));
+  if(hasAttendanceScore(e)) vals.push(attendanceScore(e));
+  if(!vals.length) return {text:"Not assessed",percent:null};
+  if(vals.some(v=>v === null)) return {text:"Incomplete — finish all scores",percent:null};
+  const total = vals.reduce((a,b)=>a+b,0), max = vals.length*5;
+  return {text:total+"/"+max+" · "+Math.round(total/max*100)+"%",percent:total/max*100};
+}
+
+function buildReport(session, vendors, categories, loadFailed, showTasterNames = true, reviewerMode = false){
   vendors = vendors || {}; categories = categories || {};
   const subEntries = Object.entries(session.submissions||{}); // [ [subId, sub], ... ]
   const subs = subEntries.map(([,s])=>s);
@@ -667,32 +756,30 @@ function buildReport(session, vendors, categories, loadFailed){
   const SF_LABEL = {taste:"Taste", aroma:"Aroma", appear:"Appearance", hygiene:"Hygiene", environ:"Environment", storage:"Storage", safety:"Safety"};
   const MUTE = '<span class="rcell-mute">—</span>';
   const isApproved = session && session.status === "approved";
+  const readOnly = !reviewerMode || isApproved;
 
-  // Snapshot-driven applicability: a criterion is editable iff its key is
-  // present on the entry (regardless of value — number, "N/A", "").
-  // Old format stored all 7 keys; new format omits criteria that don't apply.
-  const applicableIdx = entry => sf.map((f,i)=>(f in entry)?i:-1).filter(i=>i>=0);
-  const maxFor = entry => {
-    const n = applicableIdx(entry).length;
-    return (n ? n : 7) * 5;
-  };
-
-  // Render a score cell. Approved → read-only escaped text. Pending → dropdown.
-  // Dropdown includes "N/A" iff that's the current value, so non-numeric legacy
-  // values aren't silently overwritten.
   const scoreSelect = (entry, key) => {
-    if(!(key in entry)) return MUTE;
+    if(isAbsentEntry(entry) || !entryFoodFields(entry).includes(key)) return MUTE;
     const cur = entry[key] == null ? "" : String(entry[key]);
-    if(isApproved) return cur === "" ? MUTE : escapeHtml(cur);
+    if(readOnly) return cur === "" ? MUTE : escapeHtml(cur);
     const opts = ["","1","2","3","4","5"];
     if(cur && !opts.includes(cur)) opts.push(cur);
-    const optsHtml = opts.map(o=>`<option value="${escapeHtml(o)}"${o===cur?" selected":""}>${o===""?"—":escapeHtml(o)}</option>`).join("");
-    return `<select class="cell-edit" data-sub="${escapeHtml(entry._subId)}" data-vidx="${entry._vIdx}" data-field="${key}" onchange="saveScore(this.dataset.sub, +this.dataset.vidx, this.dataset.field, this.value)">${optsHtml}</select>`;
+    return `<select aria-label="${SF_LABEL[key]}" class="cell-edit" data-sub="${escapeHtml(entry._subId)}" data-vidx="${entry._vIdx}" data-field="${key}" onchange="saveScore(this.dataset.sub, +this.dataset.vidx, this.dataset.field, this.value)">${opts.map(o=>`<option value="${escapeHtml(o)}"${o===cur?" selected":""}>${o===""?"—":escapeHtml(o)}</option>`).join("")}</select>`;
+  };
+  const attendanceControl = e => {
+    let html = escapeHtml(attendanceLabel(e));
+    if(!readOnly && e.assessmentVersion === 2){
+      const opts = hasAttendanceScore(e) ? ["Early","Middle","Late","Absent"] : ["Present","Absent"];
+      html = `<select aria-label="Attendance & punctuality" class="cell-edit attendance-edit" data-sub="${escapeHtml(e._subId)}" data-vidx="${e._vIdx}" onchange="saveAttendance(this.dataset.sub,+this.dataset.vidx,this.value)">${opts.map(v=>`<option value="${v}"${v===e.att?" selected":""}>${escapeHtml(ATTENDANCE_LABELS[v])}${hasAttendanceScore(e)?" · "+ATTENDANCE_POINTS[v]+"/5":""}</option>`).join("")}</select>`;
+    }
+    if(isAbsentEntry(e)) html += `<div class="attendance-note">Notice: ${escapeHtml(e.notice || "Not recorded")}${e.absenceReason?" · "+escapeHtml(e.absenceReason):""}</div>`;
+    return html;
   };
 
   let h=`<div class="card">`;
-  h+=`<div style="text-align:center;padding:1rem 0 1.5rem"><div style="font-size:22px;font-weight:700;margin-bottom:6px">Food Vendor Inspection Report</div><div style="font-size:14px;color:var(--text2)">${session.name||session.date} &nbsp;&middot;&nbsp; Date: ${session.date} &nbsp;&middot;&nbsp; ${subs.length} taster(s)</div></div>`;
+  h+=`<div style="text-align:center;padding:1rem 0 1.5rem"><div style="font-size:22px;font-weight:700;margin-bottom:6px">Food Vendor Inspection Report</div><div style="font-size:14px;color:var(--text2)">${escapeHtml(session.name||session.date)} &nbsp;&middot;&nbsp; Date: ${escapeHtml(session.date||"")} &nbsp;&middot;&nbsp; ${subs.length} taster(s)</div></div>`;
 
+  if(!reviewerMode) h+=`<div class="report-toolbar"><button class="btn sm" onclick="toggleTasterNames()">${showTasterNames?"Hide taster names":"Show taster names"}</button></div>`;
   if(loadFailed){
     h+=`<div class="report-warn">Couldn't load full category data — totals are computed from submission data only.</div>`;
   }
@@ -713,89 +800,68 @@ function buildReport(session, vendors, categories, loadFailed){
     });
   });
 
-  // Pre-compute per-vendor totals + averages so desktop table and mobile cards share them
+  // Absences count as zero for attendance, but never enter food-quality averages.
   const vendorList = Object.values(vmap).map(vd=>{
-    const groupMax = maxFor(vd.entries[0]);
     const avg = {};
     sf.forEach(f=>{
-      const ns = vd.entries.map(e=>parseFloat(e[f])).filter(n=>!isNaN(n));
-      avg[f] = ns.length ? (ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1) : null;
+      const values = vd.entries.map(e=>foodScore(e,f)).filter(n=>n !== null);
+      avg[f] = values.length ? (values.reduce((a,b)=>a+b,0)/values.length).toFixed(1) : null;
     });
-    const avgNums = sf.map(f=>avg[f]).filter(v=>v!==null).map(parseFloat);
-    const avgTot = avgNums.reduce((a,b)=>a+b,0).toFixed(1);
-    const avgCell = avgNums.length ? `${avgTot}/${groupMax} · ${Math.round(parseFloat(avgTot)/groupMax*100)}%` : "—";
-    return { vd, groupMax, avg, avgCell };
+    const attendanceValues = vd.entries.map(attendanceScore).filter(n=>n !== null);
+    const attendanceAvg = attendanceValues.length ? (attendanceValues.reduce((a,b)=>a+b,0)/attendanceValues.length).toFixed(1)+"/5" : "—";
+    const percentages = vd.entries.map(e=>entrySummary(e).percent).filter(n=>n !== null);
+    const avgCell = percentages.length ? Math.round(percentages.reduce((a,b)=>a+b,0)/percentages.length)+"% (assessed entries)" : "Not assessed";
+    const absentCount = vd.entries.filter(isAbsentEntry).length;
+    return {vd,avg,attendanceAvg,avgCell,absentCount};
   });
 
-  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 3 — Vendor assessment</div>`;
-  // Desktop table (hidden on ≤640px via CSS)
-  h+=`<table class="rtable sec3-desktop"><thead><tr><th>Vendor</th><th>Cat.</th><th>Taster</th><th>Attend.</th><th>Taste</th><th>Aroma</th><th>Appear.</th><th>Hygiene</th><th>Environ.</th><th>Storage</th><th>Safety</th><th>Total</th></tr></thead><tbody>`;
-  let sn=1;
-  vendorList.forEach(({vd, avg, avgCell})=>{
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 3 — Vendor assessment</div><p class="attendance-note">Attendance, when enabled: early and ready 5 · around the expected time 3 · late 1 · absent 0. Choosing Absent clears food scores and feedback. Food averages exclude absences. Overall averages use completed assessments only.</p>`;
+  h+=`<div class="sec3-desktop"><table class="rtable"><thead><tr><th>Vendor</th><th>Cat.</th>${showTasterNames?"<th>Taster</th>":""}<th>Attendance</th>${sf.map(f=>`<th>${SF_LABEL[f]}</th>`).join("")}<th>Total</th></tr></thead><tbody>`;
+  vendorList.forEach(({vd,avg,attendanceAvg,avgCell,absentCount},vi)=>{
     vd.entries.forEach((e,ei)=>{
-      const max = maxFor(e);
-      const tot = sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
-      const hasN = sf.some(f=>!isNaN(parseFloat(e[f])));
-      h+=`<tr>`;if(ei===0)h+=`<td rowspan="${vd.entries.length+1}" style="font-weight:600">${sn++}. ${vd.display}</td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
-      h+=`<td>${escapeHtml(e.taster||"")}</td><td>${escapeHtml(e.att||"")}</td>`;
-      h+=sf.map(f=>`<td>${scoreSelect(e,f)}</td>`).join("");
-      h+=`<td>${hasN ? tot+"/"+max+" · "+Math.round(tot/max*100)+"%" : "—"}</td></tr>`;
+      h+=`<tr>`;
+      if(ei===0) h+=`<td rowspan="${vd.entries.length+1}"><strong>${vi+1}. ${vd.display}</strong></td><td rowspan="${vd.entries.length+1}">${vd.cat||"—"}</td>`;
+      if(showTasterNames) h+=`<td>${escapeHtml(e.taster||"")}</td>`;
+      h+=`<td>${attendanceControl(e)}</td>${sf.map(f=>`<td>${scoreSelect(e,f)}</td>`).join("")}<td>${entrySummary(e).text}</td></tr>`;
     });
-    h+=`<tr style="background:#e8f0fd"><td colspan="2"><strong>Average</strong></td>${sf.map(f=>`<td><strong>${avg[f]===null?MUTE:avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
+    h+=`<tr class="report-average">${showTasterNames?"<td>Average</td>":""}<td>Attendance: ${attendanceAvg}<br>${absentCount} absent</td>${sf.map(f=>`<td><strong>${avg[f]===null?MUTE:avg[f]}</strong></td>`).join("")}<td><strong>${avgCell}</strong></td></tr>`;
   });
-  h+=`</tbody></table>`;
-
-  // Mobile card layout (hidden on >640px via CSS). One m-vcard per entry,
-  // plus a m-avg card per vendor when 2+ entries. Reuses scoreSelect() so
-  // edit handlers behave identically to the desktop table.
-  h+=`<div class="sec3-mobile">`;
-  let mn=1;
-  vendorList.forEach(({vd, avg, avgCell})=>{
-    const num = mn++;
+  h+=`</tbody></table></div><div class="sec3-mobile">`;
+  vendorList.forEach(({vd,avg,attendanceAvg,avgCell,absentCount},vi)=>{
     vd.entries.forEach(e=>{
-      const max = maxFor(e);
-      const tot = sf.map(f=>parseFloat(e[f])).filter(n=>!isNaN(n)).reduce((a,b)=>a+b,0);
-      const hasN = sf.some(f=>!isNaN(parseFloat(e[f])));
-      const rows = sf.filter(f=>(f in e)).map(f=>
-        `<div class="m-row"><span class="m-lbl">${SF_LABEL[f]}</span><span class="m-val">${scoreSelect(e,f)}</span></div>`
-      ).join("");
-      h+=`<div class="m-vcard">
-        <div class="m-vhead"><div class="m-vname">${num}. ${escapeHtml(vd.display)}</div><div class="m-vsub">${escapeHtml(vd.cat||"—")}</div></div>
-        <div class="m-vmeta"><span><span class="m-mlbl">Taster:</span> <strong>${escapeHtml(e.taster||"—")}</strong></span><span><span class="m-mlbl">Attendance:</span> <strong>${escapeHtml(e.att||"—")}</strong></span></div>
-        <div class="m-rows">${rows}</div>
-        <div class="m-vtot"><span>Total</span><strong>${hasN ? tot+"/"+max+" · "+Math.round(tot/max*100)+"%" : "—"}</strong></div>
-      </div>`;
+      const rows = isAbsentEntry(e) ? "" : entryFoodFields(e).map(f=>`<div class="m-row"><span class="m-lbl">${SF_LABEL[f]}</span><span class="m-val">${scoreSelect(e,f)}</span></div>`).join("");
+      h+=`<div class="m-vcard"><div class="m-vhead"><div class="m-vname">${vi+1}. ${vd.display}</div><div class="m-vsub">${vd.cat||"—"}</div></div>
+        ${showTasterNames?`<div class="m-vmeta">Taster: <strong>${escapeHtml(e.taster||"—")}</strong></div>`:""}
+        <div class="attendance-mobile"><span class="lbl">Attendance &amp; punctuality</span>${attendanceControl(e)}</div>
+        <div class="m-rows">${rows}</div><div class="m-vtot"><span>Total</span><strong>${entrySummary(e).text}</strong></div></div>`;
     });
     if(vd.entries.length >= 2){
-      const e0 = vd.entries[0];
-      const avgRows = sf.filter(f=>(f in e0)).map(f=>
-        `<div class="m-row"><span class="m-lbl">${SF_LABEL[f]}</span><span class="m-val"><strong>${avg[f]===null?'—':avg[f]}</strong></span></div>`
-      ).join("");
-      h+=`<div class="m-vcard m-avg">
-        <div class="m-vhead"><div class="m-vname">${num}. ${escapeHtml(vd.display)}</div><div class="m-vsub">Average of ${vd.entries.length} tasters</div></div>
-        <div class="m-rows">${avgRows}</div>
-        <div class="m-vtot"><span>Total</span><strong>${avgCell}</strong></div>
-      </div>`;
+      h+=`<div class="m-vcard m-avg"><div class="m-vhead"><div class="m-vname">${vi+1}. ${vd.display}</div><div class="m-vsub">Average · ${absentCount} absent</div></div>
+        <div class="m-row"><span class="m-lbl">Attendance</span><span class="m-val"><strong>${attendanceAvg}</strong></span></div>
+        ${sf.filter(f=>avg[f]!==null).map(f=>`<div class="m-row"><span class="m-lbl">${SF_LABEL[f]}</span><span class="m-val"><strong>${avg[f]}</strong></span></div>`).join("")}
+        <div class="m-vtot"><span>Overall</span><strong>${avgCell}</strong></div></div>`;
     }
   });
   h+=`</div></div>`;
 
   // Section 4 — feedback (text inputs + radio groups; plain text when approved)
   const fbText = (e, field) => {
+    if(isAbsentEntry(e)) return MUTE;
     const cur = e[field] == null ? "" : String(e[field]);
-    if(isApproved) return cur === "" ? MUTE : escapeHtml(cur);
+    if(readOnly) return cur === "" ? MUTE : escapeHtml(cur);
     return `<input type="text" class="cell-edit" data-sub="${escapeHtml(e._subId)}" data-vidx="${e._vIdx}" data-field="${field}" value="${escapeHtml(cur)}" onblur="if(this.value!==this.defaultValue){saveField(this.dataset.sub, +this.dataset.vidx, this.dataset.field, this.value); this.defaultValue=this.value}">`;
   };
   const fbRadio = (e, field, options) => {
+    if(isAbsentEntry(e)) return MUTE;
     const cur = e[field] == null ? "" : String(e[field]);
-    if(isApproved) return cur === "" ? MUTE : escapeHtml(cur);
+    if(readOnly) return cur === "" ? MUTE : escapeHtml(cur);
     const grpName = `r-${e._subId}-${e._vIdx}-${field}`;
     return `<div class="radio-grp">` + options.map(o=>`<label><input type="radio" name="${grpName}" value="${escapeHtml(o)}"${o===cur?" checked":""} onchange="saveField('${e._subId}', ${e._vIdx}, '${field}', this.value)">${escapeHtml(o)}</label>`).join("") + `</div>`;
   };
-  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 4 — Feedback &amp; observations</div><table class="rtable rtable-resp"><thead><tr><th>Vendor</th><th>Taster</th><th>Sampled product</th><th>Customer feedback</th><th>Observations</th><th>Follow-up?</th><th>Prev. resolved?</th></tr></thead><tbody>`;
+  h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 4 — Feedback &amp; observations</div><table class="rtable rtable-resp"><thead><tr><th>Vendor</th>${showTasterNames?"<th>Taster</th>":""}<th>Sampled product</th><th>Customer feedback</th><th>Observations</th><th>Follow-up?</th><th>Prev. resolved?</th></tr></thead><tbody>`;
   Object.values(vmap).forEach(vd=>{
     vd.entries.forEach(e=>{
-      h+=`<tr><td data-label="Vendor"><strong>${e._display}</strong></td><td data-label="Taster">${escapeHtml(e.taster||"")}</td>`;
+      h+=`<tr><td data-label="Vendor"><strong>${e._display}</strong></td>${showTasterNames?`<td data-label="Taster">${escapeHtml(e.taster||"")}</td>`:""}`;
       h+=`<td data-label="Sampled product">${fbText(e,"sample")}</td><td data-label="Customer feedback">${fbText(e,"cust")}</td><td data-label="Observations">${fbText(e,"obs")}</td>`;
       h+=`<td data-label="Follow-up?">${fbRadio(e,"fu",["Yes","No"])}</td>`;
       h+=`<td data-label="Prev. resolved?">${fbRadio(e,"pi",["Yes","No","N/A"])}</td>`;
@@ -818,18 +884,18 @@ function buildReport(session, vendors, categories, loadFailed){
 
   const aText = (a, field) => {
     const cur = a[field] == null ? "" : String(a[field]);
-    if(isApproved) return cur === "" ? MUTE : escapeHtml(cur);
+    if(readOnly) return cur === "" ? MUTE : escapeHtml(cur);
     return `<input type="text" class="cell-edit" value="${escapeHtml(cur)}" onblur="if(this.value!==this.defaultValue){saveAction('${a._subId}', ${a._aIdx}, '${field}', this.value); this.defaultValue=this.value}">`;
   };
   const aDate = (a, field) => {
     const cur = a[field] == null ? "" : String(a[field]);
-    if(isApproved) return cur === "" ? MUTE : escapeHtml(cur);
+    if(readOnly) return cur === "" ? MUTE : escapeHtml(cur);
     return `<input type="date" class="cell-edit" value="${escapeHtml(cur)}" onchange="saveAction('${a._subId}', ${a._aIdx}, '${field}', this.value)">`;
   };
 
   h+=`<div style="margin-bottom:1.5rem"><div class="card-t" style="font-size:13px">Section 5 — Actions &amp; follow-ups</div>`;
   if(allA.length){
-    const headExtra = isApproved ? "" : "<th></th>";
+    const headExtra = readOnly ? "" : "<th></th>";
     h+=`<table class="rtable rtable-resp"><thead><tr><th>#</th><th>Vendor</th><th>Raised by</th><th>Issue</th><th>Action</th><th>Deadline</th><th>Officer</th>${headExtra}</tr></thead><tbody>`;
     allA.forEach((a,i)=>{
       const hdrText = (a.vendor||"").trim() || "New action";
@@ -842,7 +908,7 @@ function buildReport(session, vendors, categories, loadFailed){
       h+=`<td data-label="Action">${aText(a,"action")}</td>`;
       h+=`<td data-label="Deadline">${aDate(a,"deadline")}</td>`;
       h+=`<td data-label="Officer">${aText(a,"officer")}</td>`;
-      if(!isApproved){
+      if(!readOnly){
         h+=`<td class="m-action-rm"><button class="btn-rm" onclick="removeAction('${a._subId}', ${a._aIdx})">Remove</button></td>`;
       }
       h+=`</tr>`;
@@ -851,7 +917,7 @@ function buildReport(session, vendors, categories, loadFailed){
   } else {
     h+=`<div style="font-size:13px;color:var(--text3);padding:8px 0">No action items.</div>`;
   }
-  if(addSubId && !isApproved){
+  if(addSubId && !readOnly){
     h+=`<div class="action-add"><button class="btn sm" onclick="addAction('${addSubId}')">+ Add action</button></div>`;
   }
   h+=`</div>`;
@@ -863,15 +929,13 @@ function buildReport(session, vendors, categories, loadFailed){
   subs.forEach(s=>{ h+=`<tr><td data-label="Inspector"><strong>${escapeHtml(s.taster||"")}</strong></td><td data-label="Role">${escapeHtml(s.role||"—")}</td><td data-label="Time submitted">${escapeHtml(s.time||"")}</td></tr>` });
   h+=`</tbody></table></div></div>`;
 
-  // R5 — Approve panel as a separate card below the report
-  h+=`<div class="approve-card">`;
-  if(isApproved){
-    h+=`<div class="approved-block">${escapeHtml(APPROVED_LOCKED_MSG)}</div>`;
-  } else {
-    h+=`<p class="approve-help">${escapeHtml(APPROVE_HELP)}</p>`;
-    h+=`<button class="btn pri full" id="rev-approve-btn" onclick="approveReport()">Approve report</button>`;
+  // Reviewer-only approval controls; the same renderer serves the admin report.
+  if(reviewerMode){
+    h+=`<div class="approve-card">`;
+    if(isApproved) h+=`<div class="approved-block">${escapeHtml(APPROVED_LOCKED_MSG)}</div>`;
+    else h+=`<p class="approve-help">${escapeHtml(APPROVE_HELP)}</p><button class="btn pri full" id="rev-approve-btn" onclick="approveReport()">Approve report</button>`;
+    h+=`</div>`;
   }
-  h+=`</div>`;
   return h;
 }
 
