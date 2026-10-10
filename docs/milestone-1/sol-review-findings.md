@@ -1,6 +1,6 @@
-# Sol independent review — pending fixes
+# Sol independent review — resolved initial findings
 
-Do not apply the migration or mark M1 ready until resolved.
+All seven initial findings below were fixed by Opus. Sol independently re-ran the location/null-version reproduction and confirmed denial. The complete transactional test passed 153 assertions on the real savour-dev project after applying the reviewed migration. The test transaction rolled back; zero workspaces and zero fixture users remained. The end-to-end application milestone is still under implementation.
 
 ## Reproduced against freshly replayed migration in PGlite
 
@@ -18,3 +18,9 @@ Test script /tmp/savour-qa/independent-db.mjs ran successfully through actual RP
 - Require expected readiness time for scored attendance when creating session; it is currently nullable. Preserve that time in approved snapshot so reports show what Early/Middle/Late refers to.
 
 Maintain shared session lock for evidence writes. No cloud mutation by developer. Coordinator applies after fixes and passing local/integration tests.
+
+## Database advisor review
+
+No security error or warning was returned. One informational notice says report_revisions has RLS and no policy; this is intentional deny-all direct access, with no client SELECT grant. Authorized report reads go through redacting RPCs. [Supabase explanation](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+
+Performance advisor identified 16 foreign-key covering-index suggestions and a new unused audit index; assess query plans as realistic data grows. Do not remove the audit index based on an empty database. Auth connection allocation is a production sizing consideration. These informational suggestions did not block functional checks. [Index guidance](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys).
