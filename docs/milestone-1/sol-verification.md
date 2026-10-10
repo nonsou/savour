@@ -27,3 +27,8 @@ Opus added a fail-closed SaaS build guard in npm build and next.config: only loc
 
 ## Application Preview result
 Deployment dpl_DddGTKky9MnJnZ3he7d6cPrzkDy7 is READY as Preview at https://savour-3ycv82af7-nonsous-projects.vercel.app (no production URL). It includes commit fdd31c8 and the production-target guard. Authenticated Vercel HTTP checks returned 200 for the expected login form and application 401 / private, no-store for an anonymous workspace export. This verifies hosting and unauthenticated boundaries, not the signed-in workflow. Canonical Notion SOP and PRD were updated with the tested/pending split.
+
+## Development Auth initiation
+The owner signed in to the savour-dev Supabase dashboard. Site URL is now the protected application Preview, and the callback allow-list contains only that exact preview host plus local 127.0.0.1:3100 and localhost:3000 callback paths (including callback query parameters). Changes were verified in the dashboard.
+
+The normal SAVOUR login form successfully initiated email sign-in to the owner-authorized inbox and displayed “Email sent”. This is evidence of email initiation only. The owner must open the link in the originating Codex browser to complete the PKCE flow. Signed-in workflow, invitation acceptance and MFA tests are still pending. No direct Auth account seeding was used.
