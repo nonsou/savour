@@ -90,8 +90,14 @@ legend { padding: 0 .4rem; font-weight: 700; }
 
 table { width: 100%; border-collapse: collapse; font-size: .95rem; }
 th, td { text-align: left; padding: .55rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { color: var(--muted); font-weight: 600; font-size: .85rem; }
-.table-wrap { overflow-x: auto; }
+th { color: var(--muted); font-weight: 600; font-size: .85rem; white-space: nowrap; }
+/* Tables scroll sideways inside their wrapper on narrow screens instead of crushing columns.
+   Cells get real minimum widths (the inherited overflow-wrap:anywhere from .card would otherwise
+   let every column shrink to one character); text inside a cell wraps between words. */
+.table-wrap { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.table-wrap th, .table-wrap td { min-width: 5rem; overflow-wrap: break-word; word-break: normal; hyphens: auto; }
+.table-wrap th:first-child, .table-wrap td:first-child { min-width: 9rem; }
+.table-wrap td.wide { min-width: 14rem; max-width: 28rem; overflow-wrap: anywhere; }
 
 .topbar { border-bottom: 1px solid var(--line); background: #1a140e; position: sticky; top: 0; z-index: 10; }
 .topbar .container { padding-top: .5rem; padding-bottom: .5rem; }

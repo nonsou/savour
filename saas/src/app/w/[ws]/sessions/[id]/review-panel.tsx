@@ -69,7 +69,7 @@ export function ReviewPanel({ ws, data }: { ws: string; data: Data }) {
                     return (
                       <tr key={a.user_id}>
                         <td>{x?.assessor_name ?? "Assigned assessor"}{a.user_id === data.user.id && " (you)"}</td>
-                        <td className="small">
+                        <td className="small wide">
                           {!x && <span className="muted">No response yet</span>}
                           {x?.state === "cleared" && <span>Cleared — needs fresh scores if present</span>}
                           {x?.state === "submitted" && (

@@ -35,7 +35,7 @@ export async function sendCode(_: ActionState, form: FormData): Promise<ActionSt
     email: str(form, "email"),
     options: { emailRedirectTo: `${await siteOrigin()}/auth/callback?next=${encodeURIComponent(next)}` },
   });
-  if (error) return { error: error.status === 429 ? "Too many requests. Wait a minute and try again." : "Could not send the email." };
+  if (error) return { error: error.status === 429 ? "The sign-in email limit has been reached. Please try again later." : "Could not send the email." };
   return { ok: "Email sent. Use the link, or enter the code below if your email shows one." };
 }
 
