@@ -1,4 +1,6 @@
 import type { NextConfig } from "next";
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
+import { buildTargetError } from "./scripts/build-guard.mjs";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -19,4 +21,12 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Second layer of the production guard: also refuses a direct `next build` (e.g. an overridden
+// Vercel Build Command) that skips `npm run build`.
+export default function config(phase: string): NextConfig {
+  if (phase === PHASE_PRODUCTION_BUILD) {
+    const error = buildTargetError(process.env);
+    if (error) throw new Error(`[build-guard] ${error}`);
+  }
+  return nextConfig;
+}

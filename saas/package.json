@@ -8,12 +8,13 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/build-guard.mjs && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:sql": "vitest run tests/sql"
+    "test:sql": "vitest run tests/sql",
+    "build:guard": "node scripts/build-guard.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "1.1.1",

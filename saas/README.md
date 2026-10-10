@@ -45,6 +45,31 @@ NEXT_DIST_DIR=.next-verify npx next build   # production build without touching 
 QA_SAMPLE_PDF=/tmp/savour-qa/sample-report.pdf npx vitest run tests/qa   # disposable sample PDF via buildPdf
 ```
 
+## Production build guard (fail closed)
+
+The SaaS must not reach Vercel Production until the owner separately approves a production release.
+`scripts/build-guard.mjs` enforces this in two layers:
+
+1. `npm run build` runs the guard (`node scripts/build-guard.mjs && next build`) before Next.js starts.
+2. `next.config.ts` runs the same check during the production-build phase, so a direct `next build`
+   (for example an overridden Vercel Build Command) is refused too. `next dev` is unaffected.
+
+| Environment | Result |
+| --- | --- |
+| Local (no `VERCEL*` variables), or `VERCEL_ENV=development` off Vercel | allowed |
+| Vercel with `VERCEL_ENV=preview` | allowed |
+| `VERCEL_ENV=production` or `VERCEL_TARGET_ENV=production` (any casing, on or off Vercel) | **refused, exit 1** |
+| On Vercel with a missing, `development` or unrecognised `VERCEL_ENV` | **refused** |
+
+Tests: `tests/unit/build-guard.test.ts` spawns the real script and the real `npm run build` with a
+production environment (it stops at the guard), and checks the `next.config` layer. Removing the
+guard later requires the owner's production approval.
+
+Platform blocker (10 October 2026): the project's first Vercel deployment auto-targeted Production
+even with `--target preview`. Sol deleted both deployments; the project has zero deployments, and no
+further cloud deployment will happen until the owner approves a protected placeholder. The guard
+means a repeat of that mistargeting fails the build instead of serving the app on Production.
+
 ## Architecture
 
 * **Next.js 16 App Router** (`src/app`). `src/proxy.ts` refreshes the Supabase session cookie
