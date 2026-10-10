@@ -79,3 +79,9 @@ One guest retry at 22:21:15 UTC still returned429 / over_email_send_rate_limit, 
 - Full suite112passed/1optionalartifact skipped; lint/typecheck passed; production-style local build20routes passed. React review: keyed saved fields only, labels preserved, form feedback stays mounted, no new effects/shared mutable state, no authorization/database changes. Code fixes verified locally; current hosted Preview predates this patch and will be refreshed before the demonstration.
 - Guest retry during this continuation again returned the explicit email-limit message; no delivery claimed. No additional SMTP/rate-limit settings or production changes.
 - Screenshot evidence: /tmp/savour-qa/role-save-fixed.jpg, outcome-save-fixed.jpg, viewer-redacted-report.jpg, reviewer-approved.jpg, guest-email-limit-confirmed.jpg.
+
+## Refreshed Preview and guest email initiation
+
+- Commit251a54f deployed as protected Preview dpl_8mBsgJRC7uHJfv8RrXYN8Awk1YgY at https://savour-2g24g833p-nonsous-projects.vercel.app. READY, targetPreview, productionUrlnull; VercelAuthentication retained. Remote build20routes passed. Protected-transport login200, anonymous application CSV401/private,no-store.
+- Supabase development SiteURL and exact callback updated to this Preview. Reload verified five exact/local callback entries; earlier hosts preserved, no broad wildcard.
+- Normal guest sign-in retry now displayed Email sent to the authorized nonsou+guest@gmail.com. Founder handoff requested to open newest email link in originating Codex browser. This verifies initiation only; guest acceptance/submission/access-ending checks still pending. Screenshot /tmp/savour-qa/guest-email-sent-confirmed.jpg.
