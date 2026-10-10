@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { InviteLinkForm } from "@/components/invite-link-form";
 import { isManager, requireWorkspace, ROLE_LABELS, type Role } from "@/lib/auth";
+import { memberAccessKey } from "@/lib/form-keys";
 import { formatDateTime } from "@/lib/report";
 import { createInvitation, revokeInvitation, revokeMember, updateMember } from "./actions";
 
@@ -65,12 +66,14 @@ export default async function TeamPage({ params }: { params: Promise<{ ws: strin
               {m.status === "active" && !self && !locked && (
                 <ActionForm action={updateMember}>
                   {hidden}<input type="hidden" name="user" value={m.user_id} />
-                  <div className="field"><label htmlFor={`r-${m.user_id}`}>Role</label>
-                    <select id={`r-${m.user_id}`} name="role" defaultValue={m.role}>{editableRoles.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</select></div>
-                  <fieldset><legend>Locations</legend>
-                    <label className="check"><input type="checkbox" name="all_locations" defaultChecked={m.all_locations} /> All locations</label>
-                    {locationBoxes(m.membership_locations.map((x) => x.location_id), m.user_id)}
-                  </fieldset>
+                  <div key={memberAccessKey(m)}>
+                    <div className="field"><label htmlFor={`r-${m.user_id}`}>Role</label>
+                      <select id={`r-${m.user_id}`} name="role" defaultValue={m.role}>{editableRoles.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</select></div>
+                    <fieldset><legend>Locations</legend>
+                      <label className="check"><input type="checkbox" name="all_locations" defaultChecked={m.all_locations} /> All locations</label>
+                      {locationBoxes(m.membership_locations.map((x) => x.location_id), m.user_id)}
+                    </fieldset>
+                  </div>
                   <SubmitButton className="btn">Save access</SubmitButton>
                 </ActionForm>
               )}

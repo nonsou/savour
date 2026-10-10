@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
+import { savedStateKey } from "@/lib/form-keys";
 import { answerText, summaryRows } from "@/lib/report";
 import { formatPct, OUTCOME_LABELS, outcomesFor, scoreAssessment, summarizeSession } from "@/lib/scoring";
 import { approveSession, closeCollection, confirmNa, resolveOutcome } from "./actions";
@@ -42,17 +43,20 @@ export function ReviewPanel({ ws, data }: { ws: string; data: Data }) {
               <ActionForm action={resolveOutcome} className="row">
                 {hidden}
                 <input type="hidden" name="subject" value={r.subject_id} />
-                <input type="hidden" name="version" value={r.version} />
-                <div style={{ flex: "1 1 180px" }}>
-                  <label htmlFor={`o-${r.subject_id}`}>Final outcome</label>
-                  <select id={`o-${r.subject_id}`} name="outcome" defaultValue={r.outcome === "unknown" ? "" : r.outcome} required>
-                    <option value="" disabled>Choose…</option>
-                    {outcomes.map((o) => <option key={o} value={o}>{OUTCOME_LABELS[o]}</option>)}
-                  </select>
-                </div>
-                <div style={{ flex: "2 1 220px" }}>
-                  <label htmlFor={`or-${r.subject_id}`}>Reason / note <span className="hint">(required for Not assessed)</span></label>
-                  <input id={`or-${r.subject_id}`} name="reason" defaultValue={r.outcome_reason ?? ""} maxLength={500} />
+                {/* Keyed by the saved outcome so React's post-save form reset uses refreshed defaults. */}
+                <div key={savedStateKey(r.outcome, r.outcome_reason, r.version)} style={{ display: "contents" }}>
+                  <input type="hidden" name="version" value={r.version} />
+                  <div style={{ flex: "1 1 180px" }}>
+                    <label htmlFor={`o-${r.subject_id}`}>Final outcome</label>
+                    <select id={`o-${r.subject_id}`} name="outcome" defaultValue={r.outcome === "unknown" ? "" : r.outcome} required>
+                      <option value="" disabled>Choose…</option>
+                      {outcomes.map((o) => <option key={o} value={o}>{OUTCOME_LABELS[o]}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: "2 1 220px" }}>
+                    <label htmlFor={`or-${r.subject_id}`}>Reason / note <span className="hint">(required for Not assessed)</span></label>
+                    <input id={`or-${r.subject_id}`} name="reason" defaultValue={r.outcome_reason ?? ""} maxLength={500} />
+                  </div>
                 </div>
                 <SubmitButton className="btn">Save outcome</SubmitButton>
               </ActionForm>

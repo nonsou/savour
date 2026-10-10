@@ -14,6 +14,8 @@ export function TemplateEditor({ ws, templateId, name, pack, mode, criteria, act
 }) {
   const [rows, setRows] = useState<Row[]>(criteria);
   const [attendance, setAttendance] = useState<AttendanceMode>(mode);
+  // Controlled (like the other fields) so React's post-publish form reset cannot restore an old name.
+  const [templateName, setTemplateName] = useState(name);
   const finalRows = rows.map((r) => ({
     key: r.isNew ? slugKey(r.label) : r.key, label: r.label.trim(), guidance: r.guidance?.trim() || null, allow_na: r.allow_na,
   }));
@@ -26,7 +28,7 @@ export function TemplateEditor({ ws, templateId, name, pack, mode, criteria, act
       <input type="hidden" name="pack" value={pack} />
       <input type="hidden" name="criteria" value={JSON.stringify(finalRows)} />
       <div className="field"><label htmlFor={`n-${templateId}`}>Template name</label>
-        <input id={`n-${templateId}`} name="name" defaultValue={name} required maxLength={120} /></div>
+        <input id={`n-${templateId}`} name="name" value={templateName} onChange={(e) => setTemplateName(e.target.value)} required maxLength={120} /></div>
       <div className="field"><label htmlFor={`m-${templateId}`}>Attendance</label>
         <select id={`m-${templateId}`} name="attendance_mode" value={attendance} onChange={(e) => setAttendance(e.target.value as AttendanceMode)}>
           <option value="off">Off — no arrival question</option>
