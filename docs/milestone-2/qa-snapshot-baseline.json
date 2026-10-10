@@ -1,0 +1,48 @@
+{
+  "environment": "savour-dev disposable QA only",
+  "captured_before": "Milestone 2 migrations",
+  "snapshots": [
+    {
+      "session_id": "040f4861-24b2-4869-9da1-e75d68086880",
+      "revision": 1,
+      "inputs_hash": "48561ca52a459edb004f942918f0c3cdeb8ac902bde4fbb55afe26ea7238585a",
+      "formula_version": "savour-m1.1"
+    },
+    {
+      "session_id": "06d9614b-e5ae-47dd-a012-0ba960db27cf",
+      "revision": 1,
+      "inputs_hash": "f6d454abef0bd2e30fa0c2c36f7cadd21f212ac034f11461ee2835a502015265",
+      "formula_version": "savour-m1.1"
+    },
+    {
+      "session_id": "06d9614b-e5ae-47dd-a012-0ba960db27cf",
+      "revision": 2,
+      "inputs_hash": "44b4243209bf615e86b4ddc3e97dac5bdeb76b394d3b83ef748e27ff3dd0f6ee",
+      "formula_version": "savour-m1.1"
+    },
+    {
+      "session_id": "170bfaf7-2cf2-42ee-ab61-ee9564458f6b",
+      "revision": 1,
+      "inputs_hash": "1852021e75cbbbf8c336e401bbdbf3621fd0c4ab118e45e11d7ee31c774067ba",
+      "formula_version": "savour-m1.1"
+    },
+    {
+      "session_id": "170bfaf7-2cf2-42ee-ab61-ee9564458f6b",
+      "revision": 2,
+      "inputs_hash": "5c5bbe697f5f9bc3bfa630b47af6e57661b4ca4b7cfc4a64fec17c57b6a14c6c",
+      "formula_version": "savour-m1.1"
+    },
+    {
+      "session_id": "170bfaf7-2cf2-42ee-ab61-ee9564458f6b",
+      "revision": 3,
+      "inputs_hash": "b3e4b5a9b75d8c38e76d23109bcd6a2624b077b7f483d7993d8cc6d7f274ae35",
+      "formula_version": "savour-m1.1"
+    },
+    {
+      "session_id": "23f53a3e-6955-4c1e-a963-841140e728c9",
+      "revision": 1,
+      "inputs_hash": "446595d3a2810658f0889fbdde89d30648bbf3773d100003114773632a976132",
+      "formula_version": "savour-m1.1"
+    }
+  ]
+}
