@@ -47,3 +47,21 @@ The normal SAVOUR login form successfully initiated email sign-in to the owner-a
 - Opus ran109tests (one optional PDF sample skipped), lint, typecheck and isolated build after CSS fix; coordinator rebuilt actual local app and verified mobile screens. Subsequent one-line email copy fix passed lint/typecheck.
 - Owner authenticator enrollment handed off; user must enter new authentication credential themselves. Guest acceptance, additional role/tenant browser flows and true concurrent approval/submission test remain pending. No final M1 acceptance or production readiness claim.
 - Main and Firebase MVP files remain unchanged. Feature-branch commits/pushes and Preview only are authorized; no application Production deployment.
+
+## Authenticator and real overlapping database requests
+
+- Founder completed authenticator enrollment himself. Browser confirms enrolled and verified at aal2; no QR/seed/code read or recorded by Sol. Proof: /tmp/savour-qa/security-confirmed.jpg.
+- Verified both overlap orders using one test transaction through the managed SQL connector and a simultaneous application RPC through the signed-in browser. The SQL harness executes the existing public RPCs under authenticated test-owner/assessor claims, against the disposable QA session only; no authentication users were seeded.
+- Submission-first: reviewer amendment created assessmentv3 while holding the shared session lock. The harness repeatedly refreshed pg_stat_activity and asserted that another backend was blocked by its own pg_backend_pid via pg_blocking_pids. Once it committed, the browser approval refused its stale snapshot with the explicit reload message. The session stayed in review.
+- Approval-first: approval created revision3 snapshot and held the lock. The harness again asserted an independently blocked backend. After approval committed, the staged browser amendment failed with “This session is approved or cancelled and cannot be changed. Nothing was saved.”
+- Final database check: approved revision3, data_version12, assessmentversion3, Taste4 (the rejected amendment attempted Taste5), three preserved approved snapshots. This verifies the attempted edit did not modify the approved result. Proof: /tmp/savour-qa/concurrent-edit-refused.jpg.
+- Preliminary timing trials did not prove overlap and were not counted. Their harness mutations rolled back when the assertion failed. One preliminary pair proved stale_version sequentially but is not reported as concurrency evidence. Refreshing the statistics snapshot was required to observe newly active waiters accurately.
+- Guest sign-in remains pending the built-in email allowance; original guest invitation belongs to a now-closed test session and will be replaced with a fresh open-session invitation for guest acceptance.
+
+## Isolation and updated Preview verification
+
+- Owner UI created second disposable business 53784ce1-1357-44a2-a99c-7beffda8882a. Signed-in staff at localhost was denied its overview and setup pages. Proof: /tmp/savour-qa/tenant-isolation-denied.jpg.
+- Fresh open guest inspection 040f4861-24b2-4869-9da1-e75d68086880 includes Early and Middle subjects; its email-bound guest invitation permits Early only. No invitation token recorded here. Normal guest sign-in remains pending.
+- Updated deployment dpl_3wK2R3wpvkWYF4mU3gUY5mgksNR7 is READY / Preview at https://savour-3aywezgyu-nonsous-projects.vercel.app, from ae0149f. Protected login returned200 and browser showed expected forms. Anonymous session CSV returned401 with private,no-store caching through Vercel authenticated transport (no application identity).
+- Supabase development Site URL now points to the new exact Preview. Added its exact callback host/path; retained prior Preview and both local callbacks. Reload verified four entries. No broad host wildcard, SMTP or rate-limit change.
+- Owner MFA is enrolled and verified, but enforcement is still a production launch gate. Milestone acceptance remains open until guest normal sign-in/scoped submission and access-ending checks are complete.
