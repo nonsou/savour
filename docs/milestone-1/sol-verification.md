@@ -65,3 +65,7 @@ The normal SAVOUR login form successfully initiated email sign-in to the owner-a
 - Updated deployment dpl_3wK2R3wpvkWYF4mU3gUY5mgksNR7 is READY / Preview at https://savour-3aywezgyu-nonsous-projects.vercel.app, from ae0149f. Protected login returned200 and browser showed expected forms. Anonymous session CSV returned401 with private,no-store caching through Vercel authenticated transport (no application identity).
 - Supabase development Site URL now points to the new exact Preview. Added its exact callback host/path; retained prior Preview and both local callbacks. Reload verified four entries. No broad host wildcard, SMTP or rate-limit change.
 - Owner MFA is enrolled and verified, but enforcement is still a production launch gate. Milestone acceptance remains open until guest normal sign-in/scoped submission and access-ending checks are complete.
+
+## Guest sender blocker at handoff
+
+One guest retry at 22:21:15 UTC still returned429 / over_email_send_rate_limit, confirmed in Supabase Auth logs. No guest email delivery is claimed. Logs show successful owner/staff requests at21:20:22 and21:54:15 UTC, with rejected guest requests at21:56:32 and22:21:15. The sending allowance did not reset one hour after the first success, so no exact retry time is promised. No additional retries, direct Auth seeding, verification bypass or SMTP changes were made. Guest confirmation/scoped submission/access-ending acceptance remains pending.
