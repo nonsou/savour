@@ -33,6 +33,26 @@ describe("database migration and security script", () => {
     await db.close();
   }, 120_000);
 
+  it("ends guest reads when collection ends while keeping reviewer evidence (all closure paths)", async () => {
+    const db = await freshDb();
+    const results = await db.exec(read("supabase", "tests", "m1_guest_closure.sql"));
+    const passed = results.flatMap((r) => r.rows).find((row) => row && "passed" in row) as
+      | { passed: number }
+      | undefined;
+    expect(Number(passed?.passed)).toBe(23);
+    const left = await db.query<{ n: number }>("select count(*)::int as n from public.workspaces");
+    expect(left.rows[0].n).toBe(0);
+    await db.close();
+  }, 120_000);
+
+  it("the guest-closure script fails on the initial migration alone (proves it detects the defect)", async () => {
+    const db = new PGlite();
+    await db.exec(read("tests", "sql", "supabase-stub.sql"));
+    await db.exec(read("supabase", "migrations", "20261010202119_m1_core.sql"));
+    await expect(db.exec(read("supabase", "tests", "m1_guest_closure.sql"))).rejects.toThrow(/FAIL: manual close: guest loses every read surface/);
+    await db.close();
+  }, 120_000);
+
   it("enables RLS on every public table and grants clients no write privileges", async () => {
     const db = await freshDb();
     const noRls = await db.query(

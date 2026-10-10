@@ -13,4 +13,4 @@ Prepared by Sol before implementation review. Use only disposable records in sav
 9. Usability: at 390x844 and desktop, signup/login, onboarding, member invitation, session creation, assessment, review and reports work with keyboard and visible errors. Inputs >=16px, primary touch controls >=44px. Failed save never announces success.
 10. Delivery: pinned dependencies, clean build/typecheck/relevant tests, migration replay from empty schema, database advisor review, reviewed branch push, protected preview smoke check. Root legacy file checksums unchanged. No credentials committed. Document limitations honestly; production release is not authorized.
 
-Status: scenarios defined; execution evidence pending.
+Status: authorized Milestone 1 package ready for founder demonstration. Execution evidence and remaining production gates are recorded in sol-verification.md; guest sign-in, scoped submission, collection closure and preserved approved evidence are complete.
