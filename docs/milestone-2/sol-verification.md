@@ -43,3 +43,9 @@ Independent final suite:164 passed,1 optional fixture writer skipped. Final sepa
 Source5ad0021, protected Preview https://savour-1b1hl27e4-nonsous-projects.vercel.app, dpl_D4gUhJp7tXwUqyeREa9DTjQhXhYJ. Vercel inspect confirms READY/preview. Remote Next build passed with Production guard explicitly confirming Preview. Upload manifest excludes environment files and QA outputs. Login200; anonymous session CSV401 with private,no-store. Supabase exact callback/SiteURL saved and reload-verified. The approved static Production deployment remains dpl_GsAftswtQAZtJ2Y5kdiL5Ff8iLgx unchanged.
 
 Owner’s normal sign-in email sent; founder email-link opening is pending. Full local signed-in QA is complete; hosted authenticated verification and founder demonstration are pending. Both canonical Notion documents were appended and refetched to confirm this checkpoint. Main/Firebase remain unchanged.
+
+## Hosted sign-in and demonstration handoff
+
+Founder completed normal owner email sign-in. Hosted workspace/dashboard verified:6 current approved non-sample sessions and3 sample approvals excluded. Hosted approved food report matched80/82.5/50; authenticated CSV and PDF downloaded. Rendered hosted PDF visually inspected: one page, Unicode intact, clear absence/restoration evidence, no clipping. Browser download operation took several minutes despite its timeout setting; this was tool latency, not an application timeout result.
+
+Created hosted UI draft03c655dd-8d3d-4d24-a8ed-69a93b4e1f66, Restaurant operations v1, one disposable QA subject, owner assessor/reviewer.24hour draft window save persisted after reload. Draft remains unopened for founder demo and does not count in analytics. Both Notion documents appended with final handoff. M2 ready for founder demonstration; founder acceptance pending. Hosted owner smoke does not claim all local role/edge checks were replayed remotely.
