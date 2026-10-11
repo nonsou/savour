@@ -57,3 +57,9 @@ Hosted analytics PDF: both2 pages rendered, fonts available, numbers75/74.4 and8
 All25 approval snapshots checked again after hosted transitions/exports, original15 pins unchanged. Root HTML identical to MVP commit5e26088. Canonical PRD/SOP updated and read-back verified. Founder demonstration and390px review remain; viewport set returned success but DOM stayed827/1280 even with visible browser. Overrides reset; no mobile pass claimed. Same-key import/invite concurrency and old advisory limitations above remain.
 
 Founder steps: open prepared Ready action on Preview, check evidence and I checked the resolution evidence, Verify and close. Open founder session102e1f0f-2a64-4156-a590-3c0f79ee3b07 report and compare unchanged approval with dated current Closed action; download CSV/PDF. Open Analytics with TV121043e5-b2ff-4716-afc9-101bc7741f16, confirm6 sessions75%quality74.4%combined and attention sources. Inspect Inbox and report at phone width. Report completion after demonstration. No M4 start or production authorization implied.
+
+## Founder demonstration completed
+
+11 October2026: founder reported “done all” after reviewing the action, report, Analytics and Inbox. Prepared action7780ecbc-be6d-4633-9525-bf0d02c35e30 is independently verified Closed v4, verified_at2026-10-11T16:32:15.752954Z (17:32 Africa/Lagos). All25 snapshot integrity checks and15 baseline pins passed again after founder closure. This supersedes the Ready/action-demonstration-pending checkpoint.
+
+390px phone-width review remains a separate open follow-up; no mobile pass is inferred. Demonstration completion is not production readiness. Milestone3 development authorization ended at demonstration. No new application work, main merge, production/Firebase change, spending or Milestone4 implementation authorized. Next: international subscription billing after explicit development authorization and merchant/provider decisions. Canonical Notion PRD/SOP updated.
