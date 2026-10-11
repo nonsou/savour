@@ -98,7 +98,8 @@ export default async function Overview({ params }: { params: Promise<{ ws: strin
       )}
       {!metrics && <p className="notice error" role="alert">Analytics are unavailable right now, so no figures are shown. Reload to try again.</p>}
       {(parts?.unsupported.length ?? 0) > 0 && <p className="notice error" role="alert">{parts!.unsupported.length} approved report(s) use a calculation this version cannot show. They are left out of every figure below.</p>}
-      <p className="muted small">Approved current revisions only. Sessions under revision and SAMPLE practice sessions are excluded. Timezone: {ctx.workspace.timezone}.</p>
+      <p className="muted small">Approved current revisions only. Sessions under revision and SAMPLE practice sessions are excluded. Timezone: {ctx.workspace.timezone}.
+        {" "}<Link href={`/w/${ws}/analytics`}>Open Analytics</Link> for filtered comparisons that also separate formulas and N/A patterns, subject history and Needs attention.</p>
       <div className="grid">
         <div className="card"><div className="stat">{metrics?.approved ?? "—"}</div><div>Approved sessions</div></div>
         <div className="card"><div className="stat">{metrics?.subjectsScored ?? "—"}</div><div>Distinct subjects with a quality score</div></div>

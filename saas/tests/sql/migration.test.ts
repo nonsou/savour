@@ -99,6 +99,77 @@ describe("milestone 2 transactional SQL scripts", () => {
   }, 120_000);
 });
 
+// Milestone 3: every foreign key on the new tables has a non-partial covering index (the advisor
+// rule), checked on the full schema. The new migrations are not sealed: they are unapplied until Sol
+// reviews and applies them.
+describe("milestone 3 schema", () => {
+  it("covers every foreign key on findings, actions, action_events and notifications", async () => {
+    const db = await freshDb();
+    const { rows } = await db.query<{ fk: string; covered: boolean }>(`
+      select c.conrelid::regclass::text || ' (' || (select string_agg(a.attname, ', ' order by k.ord)
+          from unnest(c.conkey) with ordinality k (attnum, ord) join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.attnum) || ')' as fk,
+        exists (select 1 from pg_index i where i.indrelid = c.conrelid and i.indpred is null
+          and (i.indkey::int2[])[0:cardinality(c.conkey) - 1] = c.conkey) as covered
+      from pg_constraint c
+      where c.contype = 'f' and c.connamespace = 'public'::regnamespace
+        and c.conrelid::regclass::text in ('findings', 'actions', 'action_events', 'notifications')
+      order by 1`);
+    await db.close();
+    expect(rows).toHaveLength(10);
+    expect(rows.filter((r) => !r.covered).map((r) => r.fk)).toEqual([]);
+  }, 120_000);
+
+  it("keeps notifications unreadable except through the inbox RPC, and hides idempotency columns", async () => {
+    const db = await freshDb();
+    const priv = (await db.query<{ t: string; ok: boolean }>(`
+      select t, has_table_privilege('authenticated', t, 'select') as ok
+      from unnest(array['public.notifications', 'public.findings', 'public.actions', 'public.action_events']) t`)).rows;
+    const cols = (await db.query<{ c: string; ok: boolean }>(`
+      select tbl || '.' || col as c, has_column_privilege('authenticated', tbl, col, 'select') as ok
+      from (values ('public.findings', 'idempotency_key'), ('public.findings', 'payload_hash'),
+        ('public.action_events', 'idempotency_key'), ('public.action_events', 'payload_hash'), ('public.findings', 'title')) v (tbl, col)`)).rows;
+    await db.close();
+    expect(Object.fromEntries(priv.map((r) => [r.t, r.ok]))).toEqual({
+      "public.notifications": false, "public.findings": false, "public.actions": true, "public.action_events": false });
+    expect(Object.fromEntries(cols.map((r) => [r.c, r.ok]))).toEqual({
+      "public.findings.idempotency_key": false, "public.findings.payload_hash": false, "public.action_events.idempotency_key": false,
+      "public.action_events.payload_hash": false, "public.findings.title": true });
+  }, 120_000);
+
+  it("validates criteria without trigger settings exactly as the Milestone 1 validator did", async () => {
+    const m1 = new PGlite();
+    await m1.exec(read("tests", "sql", "supabase-stub.sql"));
+    await m1.exec(read("supabase", "migrations", "20261010202119_m1_core.sql"));
+    const m3 = await freshDb();
+    const samples = [
+      [{ key: "taste", label: " Taste ", guidance: "  Flavour ", allow_na: false }, { key: "safety", label: "Safety", allow_na: true }],
+      [{ key: "a", label: "A", unknown_field: 1 }], [],
+      [{ key: "hygiene", label: "Hygiene", guidance: "", critical: false }],
+    ];
+    for (const c of samples) {
+      const q = "select private.validate_criteria($1::jsonb)::text as v";
+      const [a, b] = [(await m1.query<{ v: string }>(q, [JSON.stringify(c)])).rows[0].v, (await m3.query<{ v: string }>(q, [JSON.stringify(c)])).rows[0].v];
+      expect(b).toBe(a);
+    }
+    await m1.close();
+    await m3.close();
+  }, 120_000);
+});
+
+describe("milestone 3 transactional SQL scripts", () => {
+  it("findings, actions, workflow, self-verification, revocation, inbox, snapshots, packs and isolation", async () => {
+    const r = await runScript("m3_actions.sql");
+    expect(r.passed).toBe(205);
+    expect(r.left).toBe(0);
+  }, 120_000);
+
+  it("analytics source: scope, filters, samples, provisional separation, redaction, export audit", async () => {
+    const r = await runScript("m3_analytics.sql");
+    expect(r.passed).toBe(36);
+    expect(r.left).toBe(0);
+  }, 120_000);
+});
+
 // Lock-order invariants (see the lock order comment in the lifecycle migration). Static checks
 // on the final function definitions; they do not prove real parallel behaviour (PGlite has one
 // connection), which needs a two-connection check on real Postgres.
@@ -120,6 +191,31 @@ describe("lock-order invariants on the final schema", () => {
     for (const fn of ["update_member", "revoke_member"]) {
       expect(rows.find((r) => r.name === fn)!.src).toContain("from public.workspaces where id = p_ws for no key update");
     }
+    // Milestone 3 (lock step 6): finding/action writers take the session lock first, then lock their
+    // own rows FOR NO KEY UPDATE (never FOR UPDATE), and stamp ordering-relevant times with
+    // clock_timestamp() taken after the session lock.
+    expect(rows.filter((r) => /from public\.(findings|actions|notifications)\b[^;]*\bfor update\b/.test(r.src)).map((r) => r.name)).toEqual([]);
+    for (const fn of ["create_finding", "withdraw_finding", "create_action", "update_action", "transition_action"]) {
+      const src = rows.find((r) => r.name === fn)!.src;
+      const lock = src.indexOf("private.lock_session(");
+      expect(lock, fn).toBeGreaterThan(0);
+      const rowLock = src.search(/for no key update/);
+      if (rowLock >= 0) expect(rowLock, fn).toBeGreaterThan(lock);
+      const clock = src.indexOf("clock_timestamp()");
+      expect(clock, fn).toBeGreaterThan(lock);
+      expect(src, fn).not.toMatch(/\bnow\(\)/);
+    }
+    const approve = rows.find((r) => r.name === "approve_session")!.src;
+    const approveLock = approve.indexOf("private.lock_session(");
+    const clock = approve.indexOf("v_now := pg_catalog.clock_timestamp()");
+    expect(approveLock).toBeGreaterThan(0);
+    expect(clock).toBeGreaterThan(approveLock);
+    expect(approve.indexOf("private.generate_findings(")).toBeGreaterThan(clock);
+    expect(approve.indexOf("private.build_inputs(")).toBeGreaterThan(approve.indexOf("private.generate_findings("));
+    expect(approve).toContain("approved_by, approver_name, approved_at)");
+    // The inbox due sync never references the session row (no wait on session writers).
+    const inbox = rows.find((r) => r.name === "get_inbox")!.src;
+    expect(inbox).not.toMatch(/insert into public\.notifications \([^)]*session_id/);
     // Directory writers take the advisory directory lock before any row lock.
     for (const fn of ["save_subject", "save_category", "save_subject_contact", "commit_subject_import", "upsert_subject",
       "upsert_location", "create_sample_session"]) {

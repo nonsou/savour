@@ -77,6 +77,27 @@ const MESSAGES: Record<string, string> = {
   nothing_to_correct: "That assessor has not submitted anything to correct yet.",
   correction_open: "A correction request is already open for that response.",
   invitation_scope_conflict: "This invitation would remove subjects that already have this guest's responses or waivers. Ask for an invitation that includes",
+  // Milestone 3
+  invalid_settings: "Check the template settings",
+  sample_not_allowed: "SAMPLE practice sessions cannot have findings or corrective actions.",
+  invalid_title: "Give the finding a short title (up to 200 characters).",
+  invalid_severity: "Choose a severity: critical, high, medium or low.",
+  invalid_due_date: "Choose a due date from today, within two years",
+  invalid_assignee: "The assignee must be active staff (owner, admin, reviewer or assessor) who hold the session location.",
+  invalid_issue: "Describe the issue (up to 300 characters).",
+  invalid_action_required: "Describe the action required (up to 2,000 characters).",
+  finding_withdrawn: "That finding was withdrawn, so no new actions can be linked to it.",
+  finding_has_actions: "This finding has corrective actions. Cancel them first (with a reason), then withdraw it.",
+  invalid_command: "That action step is not recognised. Reload and try again.",
+  invalid_transition: "That step is not available from the action's current status",
+  override_reason_required: "You are not the assignee. Give a reason to record this step on their behalf.",
+  evidence_required: "Describe the resolution evidence before marking the action ready for verification.",
+  evidence_too_long: "Resolution evidence is limited to 2,000 characters.",
+  own_verification_forbidden: "You cannot verify a resolution you own or recorded",
+  no_change: "Nothing was changed.",
+  invalid_mode: "Choose approved or provisional data.",
+  invalid_filter: "One of the filters is not valid",
+  invalid_purpose: "That export type is not supported.",
 };
 
 export interface DbError { message?: string; details?: string | null; code?: string }
@@ -87,7 +108,8 @@ export function friendlyError(error: DbError | null | undefined): string {
   const base = MESSAGES[code];
   if (!base) return "The request failed. Nothing was saved. Please try again.";
   return error.details && ["approval_blocked", "invalid_criteria", "not_found", "open_blocked", "duplicate_name",
-    "duplicate_external_id", "import_invalid", "invalid_import", "invitation_scope_conflict"].includes(code)
+    "duplicate_external_id", "import_invalid", "invalid_import", "invitation_scope_conflict", "invalid_settings", "invalid_due_date",
+    "invalid_transition", "own_verification_forbidden", "invalid_filter"].includes(code)
     ? `${base}: ${error.details}`
     : base;
 }

@@ -134,3 +134,31 @@ th { color: var(--muted); font-weight: 600; font-size: .85rem; white-space: nowr
 .steps .done { color: var(--ok); }
 .import-table td.errors { color: var(--danger); min-width: 14rem; }
 .signal { display: inline-block; margin: 0 .35rem .35rem 0; }
+
+/* Milestone 3: findings, actions, inbox, analytics */
+h4 { margin: 0; font-size: 1rem; }
+.action-title { margin: 0; font-size: 1.05rem; flex: 1 1 12rem; }
+.badge.sev-critical { color: #fff; background: #a3362b; border-color: #a3362b; }
+.badge.sev-high { color: var(--danger); border-color: #7a3a32; }
+.badge.sev-medium { color: var(--warn); border-color: #6b5520; }
+.badge.sev-low { color: var(--muted); }
+.badge.status-closed { color: var(--ok); border-color: #2f6b3a; }
+.badge.status-ready_for_verification { color: var(--amber-strong); border-color: var(--amber); }
+.badge.status-cancelled { color: var(--muted); border-style: dashed; }
+.badge.due-overdue { color: #fff; background: #a3362b; border-color: #a3362b; }
+.badge.due-due_today { color: var(--amber-ink); background: var(--warn); border-color: var(--warn); }
+.action-card.overdue { border-left: 4px solid #a3362b; }
+.action-card.due_today { border-left: 4px solid var(--warn); }
+.inbox { list-style: none; padding: 0; margin: 0; }
+.inbox-item { margin-bottom: .75rem; }
+.inbox-item.read { opacity: .8; }
+.inbox-item.stale { border-style: dashed; }
+.flag { border-left: 4px solid var(--warn); }
+.flag-critical, .flag-overdue { border-left-color: #a3362b; }
+.appendix { border-color: #6b5520; }
+tr.version-break td { border-top: 2px solid var(--amber); }
+details > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: .5rem; }
+details > summary.btn { display: inline-flex; }
+.action-result:focus { outline: none; }
+.action-result:focus-visible > .notice, .action-result:focus > .notice { outline: 3px solid var(--amber-strong); outline-offset: 2px; }
+.action-result .notice p { margin: .25rem 0 0; }

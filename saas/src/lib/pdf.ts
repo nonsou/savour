@@ -5,7 +5,13 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { answerText, formatDateTime, reportHeaderRows, SAMPLE_NOTICE, summaryRows, type ReportEnvelope } from "./report";
+import type { AnalyticsDataset, AnalyticsFilters, AnalyticsResult } from "./analytics";
+import { analyticsSections, headerRows as analyticsHeaderRows } from "./analytics-export";
+import { SEVERITY_LABELS } from "./labels";
+import {
+  ACTION_DETAIL_FIELDS, answerText, appendixActionLine, appendixTitle, formatDateTime, frozenActionLine, frozenActionsTitle, notRecordedNote,
+  reportHeaderRows, SAMPLE_NOTICE, snapshotState, summaryRows, type ActionLine, type ReportEnvelope,
+} from "./report";
 import { formatPct, OUTCOME_LABELS, summarizeSession, subjectStatusLabel } from "./scoring";
 
 const FONT_DIR = join(process.cwd(), "src", "assets", "fonts");
@@ -86,24 +92,80 @@ const loadFonts = () => (fontCache ??= Promise.all([
 
 const sum0 = (env: ReportEnvelope) => (env.inputs.session.is_sample ? "SAMPLE - " : "");
 
-export async function buildPdf(env: ReportEnvelope, generatedAt = new Date()): Promise<Uint8Array> {
+// New document with both embedded fonts. Full embedding on purpose: pdf-lib's subsetting dropped
+// glyphs from Noto Sans (blank text).
+async function newDocument() {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const [regularBytes, boldBytes] = await loadFonts();
-  // Full embedding on purpose: pdf-lib's subsetting dropped glyphs from Noto Sans (blank text).
   const font = await doc.embedFont(regularBytes);
   const bold = await doc.embedFont(boldBytes);
-  const { clean, missing } = makeSanitizer(font);
+  return { doc, font, bold, ...makeSanitizer(font) };
+}
 
-  const s = env.inputs.session;
-  doc.setTitle(clean(`SAVOUR report - ${sum0(env)}${s.name} - ${s.local_date} - r${env.meta.revision}`));
+function setMetadata(doc: PDFDocument, title: string, subject: string, generatedAt: Date) {
+  doc.setTitle(title);
   doc.setAuthor("SAVOUR");
   doc.setCreator("SAVOUR");
   doc.setProducer("SAVOUR");
-  doc.setSubject(clean(env.inputs.workspace.name));
+  doc.setSubject(subject);
   doc.setKeywords([]);
   doc.setCreationDate(generatedAt);
   doc.setModificationDate(generatedAt);
+}
+
+function finish(doc: PDFDocument, font: PDFFont) {
+  const pages = doc.getPages();
+  pages.forEach((p, i) => p.drawText(`Page ${i + 1} of ${pages.length}`, { x: A4[0] - M - 60, y: 20, size: 8, font }));
+  return doc.save();
+}
+
+// Headline plus every detail field of the shared action presentation (same fields as CSV and page).
+function writeAction(w: Writer, line: ActionLine, extra: string[] = []) {
+  w.text(`${line.status} — ${line.subject}: ${line.issue} (${line.severity}; due ${line.due}; ${line.assignee})`, { x: M + 10 });
+  for (const f of ACTION_DETAIL_FIELDS) {
+    const v = line[f.key];
+    if (v) w.text(`${f.label}: ${v}`, { x: M + 20, color: [0.3, 0.3, 0.3] });
+  }
+  for (const e of extra) w.text(e, { x: M + 20, size: 8, color: [0.3, 0.3, 0.3] });
+}
+
+// Findings and actions frozen at approval, then the separately dated live appendix.
+function writeFindingsAndActions(w: Writer, env: ReportEnvelope) {
+  const nameOf = (id: string) => env.inputs.subjects.find((s) => s.subject_id === id)?.name
+    ?? env.inputs.removed_subjects?.find((s) => s.subject_id === id)?.name ?? "Subject";
+  w.gap();
+  w.text(frozenActionsTitle(env), { size: 12, bold: true });
+  if (snapshotState(env) === "not_recorded") {
+    w.text(notRecordedNote(env), { x: M + 10 });
+  } else {
+    const findings = env.inputs.findings ?? [];
+    if (!findings.length) w.text("No findings.", { x: M + 10 });
+    for (const f of findings) {
+      w.text(`${SEVERITY_LABELS[f.severity]} — ${nameOf(f.subject_id)}: ${f.title} (${f.kind === "generated" ? "template trigger" : "raised by reviewer"}, revision ${f.revision})`, { x: M + 10 });
+      if (typeof f.detail?.rule === "string") w.text(`Rule: ${f.detail.rule}`, { x: M + 20, size: 8, color: [0.3, 0.3, 0.3] });
+    }
+    const actions = env.inputs.actions ?? [];
+    if (!actions.length) w.text("No corrective actions.", { x: M + 10 });
+    for (const a of actions) writeAction(w, frozenActionLine(env.inputs, a));
+  }
+  const ap = env.actions_appendix;
+  if (!ap) return;
+  w.gap();
+  w.text(appendixTitle(env), { size: 12, bold: true, color: [0.6, 0.35, 0.05] });
+  w.text("Live state read when this file was generated. It is not part of the approved evidence above.", { size: 8, color: [0.3, 0.3, 0.3] });
+  if (!ap.actions.length) w.text("No corrective actions.", { x: M + 10 });
+  for (const a of ap.actions) {
+    const line = appendixActionLine(env, a);
+    writeAction(w, line, [`${line.comparison}. Last updated ${line.updated}.`]);
+  }
+}
+
+export async function buildPdf(env: ReportEnvelope, generatedAt = new Date()): Promise<Uint8Array> {
+  const { doc, font, bold, clean, missing } = await newDocument();
+
+  const s = env.inputs.session;
+  setMetadata(doc, clean(`SAVOUR report - ${sum0(env)}${s.name} - ${s.local_date} - r${env.meta.revision}`), clean(env.inputs.workspace.name), generatedAt);
 
   const w = new Writer(doc, font, bold, clean);
   const sum = summarizeSession(env.inputs);
@@ -151,13 +213,38 @@ export async function buildPdf(env: ReportEnvelope, generatedAt = new Date()): P
       w.text(`${r.name}${r.reason ? ` - ${r.reason}` : ""}; removed ${formatDateTime(r.removed_at, env.inputs.workspace.timezone)}; ${r.retained_responses} response(s) retained in history.`, { x: M + 10 });
     }
   }
+  writeFindingsAndActions(w, env);
   w.gap();
   w.text("Scoring definitions: quality % = applicable scores / (5 x applicable criteria). N/A is excluded from the denominator; all N/A is Not assessed. Combined % (scored readiness only) = (quality points + attendance points) / (quality maximum + 5). Absence has no quality or combined score. Subjects with missing responses (including waived responses) or mixed N/A patterns are excluded from averages. Free-text notes may contain names; review before sharing.", { size: 8, color: [0.3, 0.3, 0.3] });
   if (missing() > 0) {
     w.text(`${missing()} character(s) could not be drawn with the report font and are shown as ${REPLACEMENT}. The CSV export contains the exact original text.`, { size: 8, bold: true, color: [0.7, 0.2, 0.1] });
   }
 
-  const pages = doc.getPages();
-  pages.forEach((p, i) => p.drawText(`Page ${i + 1} of ${pages.length}`, { x: A4[0] - M - 60, y: 20, size: 8, font }));
-  return doc.save();
+  return finish(doc, font);
+}
+
+// Analytics PDF: the same header rows and sections as the analytics CSV (analytics-export.ts).
+export async function buildAnalyticsPdf(ds: AnalyticsDataset, filters: AnalyticsFilters, result: AnalyticsResult,
+  generatedAt = new Date()): Promise<Uint8Array> {
+  const { doc, font, bold, clean, missing } = await newDocument();
+  setMetadata(doc, clean(`SAVOUR analytics - ${ds.mode} - ${ds.today}`), clean(ds.workspace_name), generatedAt);
+  const w = new Writer(doc, font, bold, clean);
+  w.text("SAVOUR analytics", { size: 16, bold: true });
+  if (ds.mode === "provisional") w.text("PROVISIONAL - NOT APPROVED. Never combined with approved figures.", { size: 11, bold: true, color: [0.7, 0.2, 0.1] });
+  for (const [k, v] of analyticsHeaderRows(ds, filters, result)) w.text(`${k}: ${v}`);
+  for (const sec of analyticsSections(ds, result)) {
+    w.gap();
+    w.text(sec.title, { size: 12, bold: true });
+    if (sec.note) w.text(sec.note, { size: 8, color: [0.3, 0.3, 0.3] });
+    if (!sec.rows.length) { w.text("None.", { x: M + 10 }); continue; }
+    // Each row as labelled lines: wide tables do not fit A4 columns legibly.
+    for (const row of sec.rows) {
+      w.text(row.map((cell, i) => `${sec.header[i]}: ${cell === null ? "—" : cell}`).join(" · "), { x: M + 10, size: 8 });
+      w.gap(2);
+    }
+  }
+  if (missing() > 0) {
+    w.text(`${missing()} character(s) could not be drawn with the report font and are shown as ${REPLACEMENT}. The CSV export contains the exact original text.`, { size: 8, bold: true, color: [0.7, 0.2, 0.1] });
+  }
+  return finish(doc, font);
 }

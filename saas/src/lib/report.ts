@@ -1,9 +1,10 @@
 // Report envelope returned by public.get_session_report, plus shared presentation helpers and
 // the CSV export. UI, PDF and CSV all derive numbers from summarizeSession() on envelope.inputs.
 import { toCsv } from "./csv";
+import { ACTION_STATUS_LABELS, DUE_STATE_LABELS, SEVERITY_LABELS } from "./labels";
 import {
   formatPct, isKnownFormula, isSampleInputs, OUTCOME_LABELS, rollupByTemplate, summarizeSession, subjectStatusLabel,
-  type ReportInputs, type SessionSummary,
+  type ActionSnapshot, type ActionStatus, type ReportInputs, type SessionSummary, type Severity,
 } from "./scoring";
 
 export interface ReportMeta {
@@ -19,11 +20,35 @@ export interface ReportMeta {
   session_status: string;
   session_revision: number;
   reopen_reason: string | null;
+  actions_snapshot?: ActionsSnapshotState;   // Milestone 3
+  workspace_id?: string;                      // Milestone 3: lets routes check the business in the URL
+}
+
+// frozen: the viewed approval froze action state (m3.1). not_recorded: an earlier approval that
+// froze none. provisional: nothing is approved; actions shown are live.
+export type ActionsSnapshotState = "frozen" | "not_recorded" | "provisional";
+
+export interface AppendixAction {
+  action_id: string; finding_id: string; subject_id: string; subject_name: string; severity: Severity; status: ActionStatus;
+  issue: string; action_required: string; due_date: string; due_state: string; assignee_label: string;
+  resolution_evidence: string | null; resolved_at: string | null; verified_at: string | null; cancel_reason: string | null;
+  reopen_count: number; created_at: string; updated_at: string; version: number;
+  in_snapshot: boolean | null; snapshot_status: ActionStatus | null; changed_since_snapshot: boolean | null; created_after_snapshot: boolean | null;
+}
+
+// Live state of this session's actions and findings, dated by the server clock. Never part of the
+// approved evidence; compared with the frozen action IDs/versions of the revision being viewed.
+export interface ActionsAppendix {
+  as_of: string; today: string; snapshot: ActionsSnapshotState; snapshot_approved_at: string | null; snapshot_revision: number | null;
+  redacted: boolean; actions: AppendixAction[];
+  findings: { finding_id: string; subject_id: string; subject_name: string; kind: string; severity: Severity; title: string;
+    revision: number; state: string; withdrawn_at: string | null; created_at: string; in_snapshot: boolean | null }[];
 }
 
 export interface ReportEnvelope {
   meta: ReportMeta;
   inputs: ReportInputs;
+  actions_appendix?: ActionsAppendix;          // Milestone 3
   revisions: { revision: number; approved_at: string; approver_name: string }[];
 }
 
@@ -180,6 +205,117 @@ export function summaryRows(sum: SessionSummary): [string, string][] {
   return rows;
 }
 
+// ---------------------------------------------------------------------------
+// Findings and actions (Milestone 3): "at approval" comes only from the frozen snapshot; the
+// "current" appendix comes only from the live, server-dated appendix.
+// ---------------------------------------------------------------------------
+export function snapshotState(env: ReportEnvelope): ActionsSnapshotState {
+  if (env.meta.status !== "approved") return "provisional";
+  return env.meta.actions_snapshot ?? (Array.isArray(env.inputs.actions) ? "frozen" : "not_recorded");
+}
+
+export function frozenActionsTitle(env: ReportEnvelope): string {
+  const state = snapshotState(env);
+  if (state === "provisional") return "Findings and actions (live, provisional — not frozen)";
+  return `Findings and actions at approval (revision ${env.meta.revision}, ${formatDateTime(env.meta.approved_at, env.inputs.workspace.timezone)})`;
+}
+
+export function notRecordedNote(env: ReportEnvelope): string {
+  return `No action state was frozen at this approval (formula ${env.inputs.formula_version}, approved before action snapshots existed). `
+    + "Actions created later appear only in the dated current-actions appendix, never as evidence of this approval.";
+}
+
+export function appendixTitle(env: ReportEnvelope): string {
+  const a = env.actions_appendix;
+  return a ? `Current actions as of ${formatDateTime(a.as_of, env.inputs.workspace.timezone)} — not part of the approved evidence` : "";
+}
+
+export function appendixComparison(env: ReportEnvelope, a: AppendixAction): string {
+  if (a.in_snapshot === null) return snapshotState(env) === "provisional" ? "Live (nothing approved yet)" : "Not frozen at this approval";
+  if (!a.in_snapshot) return a.created_after_snapshot ? "Created after this approval" : "Not in this approval";
+  return a.changed_since_snapshot ? `Changed since approval (was ${ACTION_STATUS_LABELS[a.snapshot_status ?? "open"]})` : "Unchanged since approval";
+}
+
+// One presentation of an action for every format (page, CSV, PDF) and both sections (frozen at
+// approval; current appendix), so no format shows less than another.
+export interface ActionLine {
+  subject: string; issue: string; severity: string; status: string; due: string; assignee: string; required: string;
+  evidence: string | null; verified: string | null; cancelled: string | null; reopened: string | null;
+  comparison?: string; updated?: string;
+}
+export const ACTION_FIELDS: { key: keyof ActionLine; label: string }[] = [
+  { key: "subject", label: "Subject" }, { key: "issue", label: "Issue" }, { key: "severity", label: "Severity" },
+  { key: "status", label: "Status" }, { key: "due", label: "Due date" }, { key: "assignee", label: "Assignee" },
+  { key: "required", label: "Action required" }, { key: "evidence", label: "Resolution evidence" }, { key: "verified", label: "Verified at" },
+  { key: "cancelled", label: "Cancellation reason" }, { key: "reopened", label: "Reopened" },
+];
+export const APPENDIX_FIELDS: { key: keyof ActionLine; label: string }[] = [
+  ...ACTION_FIELDS, { key: "comparison", label: "Compared with this approval" }, { key: "updated", label: "Last updated" },
+];
+// Detail fields shown under the headline in the page and PDF.
+export const ACTION_DETAIL_FIELDS = ACTION_FIELDS.filter((f) => ["required", "evidence", "verified", "cancelled", "reopened"].includes(f.key));
+
+const subjectNameIn = (inputs: ReportInputs, id: string) => inputs.subjects.find((s) => s.subject_id === id)?.name
+  ?? inputs.removed_subjects?.find((s) => s.subject_id === id)?.name ?? "Subject";
+
+export function frozenActionLine(inputs: ReportInputs, a: ActionSnapshot): ActionLine {
+  const tz = inputs.workspace.timezone;
+  return {
+    subject: subjectNameIn(inputs, a.subject_id), issue: a.issue, severity: SEVERITY_LABELS[a.severity], status: ACTION_STATUS_LABELS[a.status],
+    due: a.due_date, assignee: a.assignee_label, required: a.action_required, evidence: a.resolution_evidence,
+    verified: a.verified_at ? formatDateTime(a.verified_at, tz) : null, cancelled: a.cancel_reason,
+    reopened: a.reopen_count ? `${a.reopen_count} time(s)` : null,
+  };
+}
+
+export function appendixActionLine(env: ReportEnvelope, a: AppendixAction): ActionLine {
+  const tz = env.inputs.workspace.timezone;
+  return {
+    subject: a.subject_name, issue: a.issue, severity: SEVERITY_LABELS[a.severity], status: ACTION_STATUS_LABELS[a.status],
+    due: a.due_state === "done" ? a.due_date : `${a.due_date} (${DUE_STATE_LABELS[a.due_state] ?? a.due_state})`, assignee: a.assignee_label,
+    required: a.action_required, evidence: a.resolution_evidence, verified: a.verified_at ? formatDateTime(a.verified_at, tz) : null,
+    cancelled: a.cancel_reason, reopened: a.reopen_count ? `${a.reopen_count} time(s)` : null,
+    comparison: appendixComparison(env, a), updated: formatDateTime(a.updated_at, tz),
+  };
+}
+
+function findingsAndActionsRows(env: ReportEnvelope): (string | number | null)[][] {
+  const rows: (string | number | null)[][] = [];
+  const nameOf = (id: string) => env.inputs.subjects.find((s) => s.subject_id === id)?.name
+    ?? env.inputs.removed_subjects?.find((s) => s.subject_id === id)?.name ?? "Subject";
+  rows.push([], [frozenActionsTitle(env)]);
+  if (snapshotState(env) === "not_recorded") {
+    rows.push(["Note", notRecordedNote(env)]);
+  } else {
+    const findings = env.inputs.findings ?? [];
+    rows.push(["Findings"], ["Subject", "Finding", "Severity", "Source", "Revision", "Rule"]);
+    if (!findings.length) rows.push(["None"]);
+    for (const f of findings) {
+      rows.push([nameOf(f.subject_id), f.title, SEVERITY_LABELS[f.severity], f.kind === "generated" ? "Template trigger" : "Raised by reviewer",
+        f.revision, typeof f.detail?.rule === "string" ? f.detail.rule : null]);
+    }
+    const actions = env.inputs.actions ?? [];
+    rows.push(["Actions"], ACTION_FIELDS.map((f) => f.label));
+    if (!actions.length) rows.push(["None"]);
+    for (const a of actions) {
+      const line = frozenActionLine(env.inputs, a);
+      rows.push(ACTION_FIELDS.map((f) => line[f.key] ?? null));
+    }
+  }
+  const ap = env.actions_appendix;
+  if (ap) {
+    rows.push([], [appendixTitle(env)]);
+    rows.push(["Note", "Live state read when this file was generated. Free-text issue and evidence may contain names; review before sharing."]);
+    rows.push(APPENDIX_FIELDS.map((f) => f.label));
+    if (!ap.actions.length) rows.push(["None"]);
+    for (const a of ap.actions) {
+      const line = appendixActionLine(env, a);
+      rows.push(APPENDIX_FIELDS.map((f) => line[f.key] ?? null));
+    }
+  }
+  return rows;
+}
+
 export function buildCsv(env: ReportEnvelope, generatedAt = new Date()): string {
   const sum = summarizeSession(env.inputs);
   const criteria = env.inputs.template.criteria;
@@ -219,6 +355,7 @@ export function buildCsv(env: ReportEnvelope, generatedAt = new Date()): string 
       }
     }
   }
+  rows.push(...findingsAndActionsRows(env));
   return toCsv(rows);
 }
 

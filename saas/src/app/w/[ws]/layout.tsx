@@ -11,6 +11,11 @@ export default async function WorkspaceLayout({ children, params }: {
   const links: [string, string][] = ctx.role === "assessor" || ctx.role === "guest"
     ? [[base, "My sessions"]]
     : [[base, "Overview"], [`${base}/sessions`, "Sessions"]];
+  // Milestone 3: actions and inbox for staff; analytics for roles that may read reports.
+  if (ctx.role === "assessor") links.push([`${base}/actions`, "My actions"]);
+  else if (ctx.role !== "guest" && ctx.role !== "viewer") links.push([`${base}/actions`, "Actions"]);
+  if (ctx.role !== "assessor" && ctx.role !== "guest") links.push([`${base}/analytics`, "Analytics"]);
+  if (ctx.role !== "guest" && ctx.role !== "viewer") links.push([`${base}/inbox`, "Inbox"]);
   if (isManager(ctx.role)) links.push([`${base}/setup`, "Locations & subjects"], [`${base}/templates`, "Templates"], [`${base}/team`, "Team"]);
   if (ctx.role !== "guest") links.push([`${base}/security`, "Security"]);
   return (
@@ -26,7 +31,8 @@ export default async function WorkspaceLayout({ children, params }: {
             </div>
           </div>
           <nav className="nav" aria-label="Workspace">
-            {links.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
+            {/* The inbox page syncs due reminders when opened, so it is never prefetched. */}
+            {links.map(([href, label]) => <Link key={href} href={href} prefetch={href.endsWith("/inbox") ? false : undefined}>{label}</Link>)}
           </nav>
         </div>
       </header>

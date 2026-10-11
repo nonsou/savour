@@ -57,7 +57,8 @@ $$ select data_version from public.sessions where id = p_session $$;
 create function t.rv(p_session uuid, p_subject uuid) returns integer language sql stable security definer as
 $$ select version from public.session_subjects where session_id = p_session and subject_id = p_subject $$;
 create function t.audits(p_action text) returns bigint language sql stable security definer as
-$$ select count(*) from public.audit_events where action = p_action $$;
+-- Scope assertions to this disposable fixture, so existing QA/demo audit rows cannot affect them.
+$$ select count(*) from public.audit_events where action = p_action and workspace_id = t.id('ws') $$;
 grant execute on function t.dv(uuid), t.rv(uuid, uuid), t.audits(text) to authenticated;
 -- Every read surface a guest/assessor could use for one session.
 create function t.surfaces(p_session uuid) returns integer[] language sql as $$
@@ -212,13 +213,14 @@ select t.err($$select public.create_invitation(t.id('ws'), 'g@savour.test', 'gue
   'not_found%', 'no guest invitation for a removed subject');
 select t.err($$select public.set_assignment(t.id('D'), t.id('S2'), t.u(6), true, t.dv(t.id('D')), 'x')$$, 'subject_removed', 'no new assignment to a removed subject');
 select t.put('rep', public.get_session_report(t.id('D'), null, false, 'view')::text);
-select t.ok(t.j('rep') -> 'inputs' ->> 'formula_version' = 'savour-m2.1'
+-- New inputs carry the current label: savour-m2.1, or savour-m3.1 once Milestone 3 is applied (same arithmetic).
+select t.ok(t.j('rep') -> 'inputs' ->> 'formula_version' in ('savour-m2.1', 'savour-m3.1')
   and jsonb_array_length(t.j('rep') -> 'inputs' -> 'subjects') = 1
   and t.j('rep') -> 'inputs' -> 'removed_subjects' -> 0 ->> 'reason' = 'Vendor withdrew from the market'
   and (t.j('rep') -> 'inputs' -> 'removed_subjects' -> 0 ->> 'retained_responses')::int = 1,
   'report inputs exclude the removed subject and disclose it with retained responses');
 select public.set_roster_subject(t.id('D'), t.id('S2'), true, 'Vendor returned', t.dv(t.id('D')));
-select t.ok((select detail ->> 'retained_responses' from public.audit_events where action = 'roster.restored') = '1',
+select t.ok((select detail ->> 'retained_responses' from public.audit_events where action = 'roster.restored' and workspace_id = t.id('ws')) = '1',
   'restoration is audited with the number of retained responses');
 select t.ok((public.get_session_report(t.id('D'), null, false, 'view') -> 'inputs' -> 'subjects' -> 1 -> 'restored' ->> 'reason') = 'Vendor returned',
   'restored subject is disclosed in report inputs');
@@ -520,7 +522,7 @@ select public.resolve_outcome(t.id('A'), t.id('S1'), 'early', null, t.rv(t.id('A
 select public.resolve_outcome(t.id('A'), t.id('S2'), 'absent', null, t.rv(t.id('A'), t.id('S2')));
 select t.put('RA', public.approve_session(t.id('A'), t.dv(t.id('A')))::text);
 reset role;
-select t.ok((select jsonb_array_length(inputs -> 'template' -> 'criteria') = 0 and formula_version = 'savour-m2.1'
+select t.ok((select jsonb_array_length(inputs -> 'template' -> 'criteria') = 0 and formula_version in ('savour-m2.1', 'savour-m3.1')
   from public.report_revisions where id = t.id('RA')), 'attendance-only session approves without a quality requirement');
 
 -- ---------------------------------------------------------------- samples (all three starter packs)
@@ -541,7 +543,7 @@ select t.ok(t.sample_roster(t.id('SM')) = 'SAMPLE - Practice kitchen operation:o
 select t.ok(t.sample_roster(t.id('SMs')) = 'SAMPLE - Practice service provider:service_provider | SAMPLE - Practice supplier:supplier',
   'supplier and service sample: a supplier and a service provider');
 select t.ok(t.sample_roster(t.id('SMs2')) = t.sample_roster(t.id('SMs'))
-  and t.n($$select 1 from public.subjects where is_sample and name like 'SAMPLE - Practice s%'$$) = 2, 'a second sample reuses the labelled sample subjects');
+  and t.n($$select 1 from public.subjects where workspace_id = t.id('ws') and is_sample and name like 'SAMPLE - Practice s%'$$) = 2, 'a second sample reuses the labelled sample subjects');
 select t.ok((select bool_and(is_sample and status = 'open' and name like 'SAMPLE%') from public.sessions
   where id in (t.id('SMf'), t.id('SM'), t.id('SMs'), t.id('SMs2'))), 'every sample session is labelled and open');
 select t.as(1);

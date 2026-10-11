@@ -7,7 +7,10 @@ const nextConfig: NextConfig = {
   // Lets a verification build run beside a dev server without sharing .next.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // The PDF export reads the embedded Unicode font from disk at runtime.
-  outputFileTracingIncludes: { "/w/[ws]/sessions/[id]/report/export": ["./src/assets/fonts/**"] },
+  outputFileTracingIncludes: {
+    "/w/[ws]/sessions/[id]/report/export": ["./src/assets/fonts/**"],
+    "/w/[ws]/analytics/export": ["./src/assets/fonts/**"],
+  },
   async headers() {
     return [{
       source: "/:path*",

@@ -2,7 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { canSeeReports, isUuid, requireWorkspace } from "@/lib/auth";
 import { friendlyError } from "@/lib/errors";
-import { answerText, formatDateTime, reportHeaderRows, SAMPLE_NOTICE, summaryRows, type ReportEnvelope } from "@/lib/report";
+import { FINDING_STATE_LABELS, SEVERITY_LABELS } from "@/lib/labels";
+import {
+  ACTION_DETAIL_FIELDS, answerText, appendixActionLine, appendixTitle, formatDateTime, frozenActionLine, frozenActionsTitle, notRecordedNote,
+  reportHeaderRows, SAMPLE_NOTICE, snapshotState, summaryRows, type ActionLine, type ReportEnvelope,
+} from "@/lib/report";
 import { formatPct, isKnownFormula, OUTCOME_LABELS, subjectStatusLabel, summarizeSession } from "@/lib/scoring";
 
 export const metadata = { title: "Report — SAVOUR" };
@@ -27,6 +31,8 @@ export default async function ReportPage({ params, searchParams }: {
     );
   }
   const env = data as ReportEnvelope;
+  // A session from another business the user also belongs to is never shown under this business.
+  if (env.meta.workspace_id !== ws) notFound();
   if (!isKnownFormula(env.inputs.formula_version)) {
     return (
       <div className="card stack">
@@ -49,6 +55,8 @@ export default async function ReportPage({ params, searchParams }: {
     return p.toString();
   };
   const base = `/w/${ws}/sessions/${id}/report`;
+  const subjectName = (sid: string) => env.inputs.subjects.find((x) => x.subject_id === sid)?.name
+    ?? env.inputs.removed_subjects?.find((x) => x.subject_id === sid)?.name ?? "Subject";
 
   return (
     <>
@@ -136,6 +144,61 @@ export default async function ReportPage({ params, searchParams }: {
           ))}</ul>
         </section>
       )}
+
+      <section className="card stack">
+        <h2>{frozenActionsTitle(env)}</h2>
+        {snapshotState(env) === "not_recorded" ? <p className="notice">{notRecordedNote(env)}</p> : (
+          <>
+            {snapshotState(env) === "provisional" && <p className="notice warn small">Live state — nothing is frozen until approval.</p>}
+            <h3>Findings</h3>
+            {(env.inputs.findings ?? []).length === 0 ? <p className="muted small">None.</p> : (
+              <ul className="small">{(env.inputs.findings ?? []).map((f) => (
+                <li key={f.finding_id}><span className={`badge sev-${f.severity}`}>{SEVERITY_LABELS[f.severity]}</span> {subjectName(f.subject_id)}: {f.title}
+                  <span className="hint"> — {f.kind === "generated" ? `template trigger, revision ${f.revision}` : `raised by a reviewer, revision ${f.revision}`}</span>
+                  {typeof f.detail?.rule === "string" && <div className="hint">Rule: {f.detail.rule}</div>}</li>
+              ))}</ul>
+            )}
+            <h3>Corrective actions</h3>
+            {(env.inputs.actions ?? []).length === 0 ? <p className="muted small">None.</p> : (
+              <ActionTable lines={(env.inputs.actions ?? []).map((a) => ({ id: a.action_id, line: frozenActionLine(env.inputs, a) }))} />
+            )}
+          </>
+        )}
+      </section>
+
+      {env.actions_appendix && (
+        <section className="card stack appendix">
+          <h2>{appendixTitle(env)}</h2>
+          <p className="small muted">Read live when this page was generated. It is separate from the approved evidence above{env.meta.status === "approved" ? ` and is compared with what revision ${env.meta.revision} froze` : ""}.
+            {env.actions_appendix.redacted && " Assignee identities are hidden."}</p>
+          {env.actions_appendix.actions.length === 0 ? <p className="muted small">No corrective actions.</p> : (
+            <ActionTable appendix lines={env.actions_appendix.actions.map((a) => ({ id: a.action_id, line: appendixActionLine(env, a) }))} />
+          )}
+          {env.actions_appendix.findings.some((f) => f.state === "withdrawn" || f.in_snapshot === false) && (
+            <p className="small">Finding changes since this approval: {env.actions_appendix.findings.filter((f) => f.state === "withdrawn" || f.in_snapshot === false)
+              .map((f) => `${f.subject_name}: ${f.title} (${FINDING_STATE_LABELS[f.state]}${f.in_snapshot === false ? ", not in this approval" : ""})`).join("; ")}</p>
+          )}
+        </section>
+      )}
     </>
+  );
+}
+
+// Same fields as the CSV and PDF (shared ActionLine presentation).
+function ActionTable({ lines, appendix = false }: { lines: { id: string; line: ActionLine }[]; appendix?: boolean }) {
+  return (
+    <div className="table-wrap"><table>
+      <thead><tr><th>Subject</th><th>Issue and details</th><th>Status</th><th>Severity</th><th>Due</th><th>Assignee</th>{appendix && <th>Compared with this approval</th>}</tr></thead>
+      <tbody>{lines.map(({ id, line }) => (
+        <tr key={id}>
+          <td>{line.subject}</td>
+          <td className="wide">{line.issue}
+            {ACTION_DETAIL_FIELDS.map((f) => line[f.key] ? <div key={f.key} className="hint">{f.label}: {line[f.key]}</div> : null)}
+            {appendix && <div className="hint">Last updated {line.updated}</div>}</td>
+          <td>{line.status}</td><td>{line.severity}</td><td>{line.due}</td><td>{line.assignee}</td>
+          {appendix && <td>{line.comparison}</td>}
+        </tr>
+      ))}</tbody>
+    </table></div>
   );
 }

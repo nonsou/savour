@@ -47,6 +47,9 @@ export function validateCriteria(criteria: Criterion[], scoredAttendance: boolea
     if (!KEY.test(c.key)) return `Invalid key "${c.key}".`;
     if (seen.has(c.key)) return `Duplicate criterion "${c.label}".`;
     if (!c.label.trim() || c.label.length > 80) return "Each criterion needs a label (max 80 characters).";
+    if (c.trigger_at_or_below !== undefined && ![1, 2, 3, 4].includes(c.trigger_at_or_below)) {
+      return `The finding trigger for "${c.label}" must be a score from 1 to 4.`;
+    }
     seen.add(c.key);
   }
   return null;

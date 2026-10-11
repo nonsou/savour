@@ -9,13 +9,21 @@
 //   missing response for approval but never counts as a response: the subject stays incomplete
 //   (no quality/combined headline, excluded from averages) and coverage stays incomplete.
 //   Missing m2.1 fields read as zero/empty, so an m1.1-shaped input computes identically.
+// * savour-m3.1 (Milestone 3): identical arithmetic again. Adds disclosures only: session.location_id,
+//   template.pack/settings, per-subject category_id/category_name/subject_type as recorded at
+//   approval, findings[] and actions[] (state at approval). Criteria may carry versioned trigger
+//   settings (critical, trigger_at_or_below) which never affect any score.
 // Unknown labels are refused (UnknownFormulaError), never silently recomputed.
 
 export type AttendanceMode = "off" | "presence" | "scored";
 export type Outcome =
   | "unknown" | "early" | "middle" | "late" | "present" | "absent" | "assessed" | "not_assessed";
 
-export interface Criterion { key: string; label: string; guidance?: string | null; allow_na: boolean }
+export interface Criterion {
+  key: string; label: string; guidance?: string | null; allow_na: boolean;
+  critical?: boolean;                     // m3: versioned finding trigger settings; never used in arithmetic
+  trigger_at_or_below?: number;
+}
 export type Answer = number | { na: string };
 export type Answers = Record<string, Answer>;
 
@@ -48,10 +56,30 @@ export interface SubjectInput {
   waived_assessors?: number;              // m2.1: waived assignments still without a response
   waivers?: WaiverInput[];                // m2.1
   restored?: { restored_at: string; reason: string | null } | null;  // m2.1
+  // m3.1: directory values at approval. A missing key means "not recorded" (legacy snapshot); a
+  // present null category_id means the subject had no category at approval.
+  category_id?: string | null;
+  category_name?: string | null;
+  subject_type?: string;
 }
 
 export interface RemovedSubjectInput {
   subject_id: string; name: string; removed_at: string; reason: string | null; retained_responses: number;
+}
+
+export type Severity = "critical" | "high" | "medium" | "low";
+export type ActionStatus = "open" | "in_progress" | "ready_for_verification" | "closed" | "cancelled";
+
+// m3.1: findings and action state frozen at approval (assignee identities removed when redacted).
+export interface FindingSnapshot {
+  finding_id: string; subject_id: string; kind: "generated" | "manual"; criterion_key: string | null;
+  severity: Severity; title: string; detail: Record<string, unknown>; revision: number; withdrawn?: boolean; created_at: string;
+}
+export interface ActionSnapshot {
+  action_id: string; finding_id: string; subject_id: string; severity: Severity; status: ActionStatus; issue: string;
+  action_required: string; due_date: string; assignee_id?: string; assignee_label: string;
+  resolution_evidence: string | null; resolved_at: string | null; verified_at: string | null; cancel_reason: string | null;
+  reopen_count: number; created_at: string; updated_at: string; version: number;
 }
 
 export interface ReportInputs {
@@ -61,18 +89,23 @@ export interface ReportInputs {
     id: string; name: string; local_date: string; location: string; revision: number;
     opens_at: string; closes_at: string; expected_ready_time: string | null;
     is_sample?: boolean;                  // m2.1
+    location_id?: string;                 // m3.1
   };
   template: {
     id: string; version_id: string; name: string; version: number;
     attendance_mode: AttendanceMode; criteria: Criterion[];
+    pack?: string;                        // m3.1
+    settings?: { repeat_window?: number };  // m3.1
   };
   subjects: SubjectInput[];
   removed_subjects?: RemovedSubjectInput[];  // m2.1
+  findings?: FindingSnapshot[];             // m3.1
+  actions?: ActionSnapshot[];               // m3.1
   redacted?: boolean;
 }
 
-export const FORMULA_VERSION = "savour-m2.1";
-export const KNOWN_FORMULAS = ["savour-m1.1", "savour-m2.1"] as const;
+export const FORMULA_VERSION = "savour-m3.1";
+export const KNOWN_FORMULAS = ["savour-m1.1", "savour-m2.1", "savour-m3.1"] as const;
 
 export class UnknownFormulaError extends Error {
   constructor(public formula: string) {

@@ -11,10 +11,15 @@ export async function publishTemplate(_: ActionState, form: FormData): Promise<A
   const { supabase } = await requireUser();
   const ws = s(form, "ws");
   let criteria: unknown;
-  try { criteria = JSON.parse(s(form, "criteria") || "[]"); } catch { return { error: "The criteria could not be read." }; }
+  let settings: unknown;
+  try {
+    criteria = JSON.parse(s(form, "criteria") || "[]");
+    settings = JSON.parse(s(form, "settings") || "null");
+  } catch { return { error: "The criteria could not be read." }; }
+  // Seven-argument publish: trigger settings are validated and frozen with the version in SQL.
   const { error } = await supabase.rpc("publish_template", {
     p_ws: ws, p_template_id: s(form, "template_id") || null, p_name: s(form, "name"),
-    p_pack: s(form, "pack") || "custom", p_attendance_mode: s(form, "attendance_mode"), p_criteria: criteria,
+    p_pack: s(form, "pack") || "custom", p_attendance_mode: s(form, "attendance_mode"), p_criteria: criteria, p_settings: settings,
   });
   if (error) return { error: friendlyError(error) };
   revalidatePath(`/w/${ws}`, "layout");

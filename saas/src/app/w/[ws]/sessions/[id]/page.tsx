@@ -3,6 +3,7 @@ import { ATTENDANCE_MODE_LABELS, SESSION_STATUS_LABELS } from "@/lib/labels";
 import { formatDateTime, formatLocalDate } from "@/lib/report";
 import { loadSession } from "./data";
 import { AssessorPanel } from "./assessor-panel";
+import { FindingsPanel } from "./findings-panel";
 import { ManagePanel } from "./manage-panel";
 import { ReviewPanel } from "./review-panel";
 
@@ -50,6 +51,7 @@ export default async function SessionPage({ params }: { params: Promise<{ ws: st
       </div>
       {myAssignments.length > 0 && <AssessorPanel ws={ws} data={d} collecting={collecting} />}
       {d.canReview && <ReviewPanel ws={ws} data={d} />}
+      {d.canReview && <FindingsPanel ws={ws} data={d} />}
       {(ctx.role === "owner" || ctx.role === "admin") && <ManagePanel ws={ws} data={d} />}
       {!d.loadFailed && !d.canReview && myAssignments.length === 0 && ctx.role !== "viewer" && (
         <p className="notice">You have no assignments in this session.</p>

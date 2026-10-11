@@ -9,7 +9,13 @@ import { TemplateEditor } from "./editor";
 
 export const metadata = { title: "Templates — SAVOUR" };
 
-interface Version { id: string; version: number; name: string; attendance_mode: AttendanceMode; criteria: Criterion[]; published_at: string }
+// Effective finding trigger (same rule as private.criterion_trigger): explicit, else 2 for critical.
+const triggerOf = (c: Criterion) => c.trigger_at_or_below ?? (c.critical ? 2 : null);
+
+interface Version {
+  id: string; version: number; name: string; attendance_mode: AttendanceMode; criteria: Criterion[]; published_at: string;
+  settings: { repeat_window?: number } | null;
+}
 interface Template { id: string; name: string; pack: string; latest_version: number; template_versions: Version[] }
 
 export default async function TemplatesPage({ params }: { params: Promise<{ ws: string }> }) {
@@ -17,7 +23,7 @@ export default async function TemplatesPage({ params }: { params: Promise<{ ws: 
   const { supabase, ctx } = await requireWorkspace(ws);
   if (!isManager(ctx.role)) notFound();
   const { data, error } = await supabase.from("templates")
-    .select("id, name, pack, latest_version, template_versions(id, version, name, attendance_mode, criteria, published_at)")
+    .select("id, name, pack, latest_version, template_versions(id, version, name, attendance_mode, criteria, published_at, settings)")
     .eq("workspace_id", ws).order("created_at");
   const templates = (data ?? []) as Template[];
   return (
@@ -50,13 +56,14 @@ export default async function TemplatesPage({ params }: { params: Promise<{ ws: 
               <h2>{t.name}</h2>
               <span className="badge">v{t.latest_version} · {ATTENDANCE_MODE_LABELS[latest?.attendance_mode ?? "off"]}</span>
             </div>
-            {latest && <p className="small">{latest.criteria.map((c) => `${c.label}${c.allow_na ? " (N/A allowed)" : ""}`).join(" · ") || "Attendance only"}</p>}
+            {latest && <p className="small">{latest.criteria.map((c) => `${c.label}${c.allow_na ? " (N/A allowed)" : ""}${c.critical ? " · critical" : ""}${triggerOf(c) ? ` · finding at ≤${triggerOf(c)}` : ""}`).join(" · ") || "Attendance only"}</p>}
+            {latest && latest.criteria.some(triggerOf) && <p className="hint">Repeat check looks back over {latest.settings?.repeat_window ?? 3} approved session(s) of the same version. Settings are frozen with each version.</p>}
             <p className="muted small">Versions: {versions.map((v) => `v${v.version} (${new Date(v.published_at).toISOString().slice(0, 10)})`).join(", ")}</p>
             {latest && (
               <details>
                 <summary>Edit and publish a new version</summary>
                 <TemplateEditor ws={ws} templateId={t.id} name={t.name} pack={t.pack} mode={latest.attendance_mode}
-                  criteria={latest.criteria} action={publishTemplate} />
+                  criteria={latest.criteria} repeatWindow={latest.settings?.repeat_window ?? 3} action={publishTemplate} />
               </details>
             )}
           </section>
