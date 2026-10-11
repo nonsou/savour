@@ -306,4 +306,3 @@ then restored byte for byte.
 * Nothing was committed, pushed, deployed or applied, and no browser, cloud or database was used.
 
 Not accepted; Sol's browser, security and Preview verification and the founder demonstration continue.
-

@@ -1,6 +1,6 @@
 # SAVOUR Milestone 3 — Sol independent verification
 
-Status: development verification in progress on 11 October 2026. Milestone demonstration and acceptance are pending. Production/Firebase MVP/root HTML unchanged; no main merge, billing or new spending.
+Status: development package ready for founder demonstration on 11 October 2026. Founder demonstration,390px mobile review and milestone acceptance are pending. Production/Firebase MVP/root HTML unchanged; no main merge, billing or new spending.
 
 ## Reviewed implementation and development database
 
@@ -30,7 +30,7 @@ Business4153190b-54b3-42c5-8ba5-7679002fa122, QA Lagos; subjectb3087541-cab9-466
 
 ## Remaining
 
-Normal Assessor workflow/sign-in, final closed-action report exports/privacy, hosted-font checks and multi-business wrong-context 404 remain. Protected Preview/exact callback, canonical Notion checkpoint and founder demonstration pending. The requested 390×844 browser override did not take effect: measured widths remained827/1280; no390px mobile pass is claimed. No milestone acceptance or production release claimed.
+Normal Assessor and hosted Owner workflows, report exports/privacy/fonts and multi-business wrong-context denial are complete. Protected Preview/exact callback and canonical Notion checkpoint are verified. Founder demonstration remains pending. The requested 390×844 browser override did not take effect: measured widths remained827/1280; no390px mobile pass is claimed. No milestone acceptance or production release claimed.
 
 ## Final local gate and browser checks (before Preview)
 
@@ -41,3 +41,19 @@ Normal Owner browser completed evidence override with required reason, own-resol
 Analytics filter by comparable TV:6 sessions,6 scored subject-sessions,coverage100%,attendance100%,quality75%,combined74.4%; decline80% to70% and2late in last3. Final CSV/PDF match. All2 PDF pages visually rendered without clipping/overlap; generated decline copy now uses plain “to” and no unsupported-glyph warning; actor names absent. Frozen founder report contains its critical finding and no action; newly assigned staff action7780ecbc-be6d-4633-9525-bf0d02c35e30 appears only in dated current appendix as Created after this approval.
 
 Vercel project/team verified prj_m7bHTgABv1pAmt7eb5FuJgvh0ELA/team_fZk4mi31yb336suO56X26CZG. Source upload dry run140 files2675696 bytes, fonts included, .env.local, all .next builds, node_modules, Supabase temp and tsbuildinfo excluded; no credentials in upload.
+
+## Protected Preview and final authenticated checks
+
+Feature implementation bbf7a7db3766d784e1ef0b09579583afb8ccac19 pushed to feat/saas-milestone-3. Deployment dpl_7qGe6xY4iXb83LhtKGqVgmd78VJs, https://savour-9a2ph51ox-nonsous-projects.vercel.app, READY. CLI inspect confirms target Preview; API confirms development project and branch metadata. Protection all_except_custom_domains unchanged; static Production deployment remains dpl_GsAftswtQAZtJ2Y5kdiL5Ff8iLgx. Git dirty metadata reflects unrelated untracked root user files; SaaS code source matches the committed feature implementation. No main/production/MVP change.
+
+Exact callback https://savour-9a2ph51ox-nonsous-projects.vercel.app/auth/callback** added to existing6 development hosts; Site URL updated to this Preview, saved/reload-verified. No wildcard host added. Owner normal email sign-in confirmed in browser as nonsou@gmail.com. First staff confirmation did not yield a staff session; attempted resend hit email rate limit (no setting changed/no further resend). Founder then used earlier staff email; localhost browser confirmed nonsou+staff@gmail.com as Assessor.
+
+Staff normal browser: assigned founder action7780ecbc-be6d-4633-9525-bf0d02c35e30 opened without Open session link; Start v2 and evidence v3 saved. Ready state has no Verify button/further steps. Direct full inspection route and Analytics denied. Staff inbox shows own assignment; marking it read persists. Owner Preview receives Ready notice. Founder action intentionally left Ready v3 for founder to verify/close.
+
+Owner hosted actionc6bbe828-7fbe-4195-ad64-5f2cfb591808 progressed Open v1 ->In progress v2 ->Ready v3 ->Closed v4 with recorded own-resolution verification override. Approved report keeps original Open action; dated appendix shows Closed, exact evidence/verification time, Changed since approval (was Open). Anonymous PDF and CSV include action required, evidence and verification time, suppress assessor/assignee identities and IDs; approver name intentionally remains. PDF metadata uses SAVOUR, not assessor identity. All1 report page rendered without clipping. Free-text-name warning remains truthful.
+
+Hosted analytics PDF: both2 pages rendered, fonts available, numbers75/74.4 and80% to70% match UI/CSV. No assessor identities or unsupported generated glyph warning. Approved future-date filter shows0 counts but No data coverage/score; Provisional visibly separated and attention flags disabled. Normal Owner local wrong-business action URL returns Not available even though Owner belongs to both businesses; server-action context regressions also pass. Anonymous hosted exports return401 with private/no-store.
+
+All25 approval snapshots checked again after hosted transitions/exports, original15 pins unchanged. Root HTML identical to MVP commit5e26088. Canonical PRD/SOP updated and read-back verified. Founder demonstration and390px review remain; viewport set returned success but DOM stayed827/1280 even with visible browser. Overrides reset; no mobile pass claimed. Same-key import/invite concurrency and old advisory limitations above remain.
+
+Founder steps: open prepared Ready action on Preview, check evidence and I checked the resolution evidence, Verify and close. Open founder session102e1f0f-2a64-4156-a590-3c0f79ee3b07 report and compare unchanged approval with dated current Closed action; download CSV/PDF. Open Analytics with TV121043e5-b2ff-4716-afc9-101bc7741f16, confirm6 sessions75%quality74.4%combined and attention sources. Inspect Inbox and report at phone width. Report completion after demonstration. No M4 start or production authorization implied.
