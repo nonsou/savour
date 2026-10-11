@@ -1,6 +1,6 @@
 # SAVOUR Milestone 2 execution brief
 
-Status: implementation, local independent acceptance, protected Preview and hosted owner verification complete; ready for founder demonstration, acceptance pending.
+Status: development milestone accepted by founder after hosted demonstration on 11 October 2026. No production release or next-milestone authorization.
 
 The founder accepted the Milestone 1 demonstration and explicitly authorized Milestone 2 under the same development-only rules. Local code, tests, feature branches, commits and pushes, protected Preview deployments and disposable development data are permitted until demonstration. Production merges/changes, Firebase MVP changes and new spending require separate approval. Base commit: ee1bd87. Branch: feat/saas-milestone-2. Canonical PRD and SOP remain the private Notion documents.
 
