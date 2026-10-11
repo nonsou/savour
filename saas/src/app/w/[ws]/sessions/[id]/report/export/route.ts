@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isUuid } from "@/lib/auth";
 import { buildPdf } from "@/lib/pdf";
 import { buildCsv, exportFilename, type ReportEnvelope } from "@/lib/report";
+import { isKnownFormula } from "@/lib/scoring";
 import { createClient } from "@/lib/supabase/server";
 
 const PRIVATE = { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
@@ -26,6 +27,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return new NextResponse(status === 403 ? "Forbidden" : "Not found", { status, headers: PRIVATE });
   }
   const env = data as ReportEnvelope;
+  // Never recompute a snapshot under a formula this build does not implement.
+  if (!isKnownFormula(env.inputs.formula_version)) {
+    return new NextResponse(`Unsupported calculation formula ${env.inputs.formula_version}; nothing exported.`, { status: 422, headers: PRIVATE });
+  }
   const filename = exportFilename(env, format);
   const headers = { ...PRIVATE, "Content-Disposition": `attachment; filename="${filename}"` };
   if (format === "csv") {

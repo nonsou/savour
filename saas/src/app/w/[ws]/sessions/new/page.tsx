@@ -12,12 +12,12 @@ interface Tpl { id: string; name: string; latest_version: number; template_versi
 
 export default async function NewSessionPage({ params }: { params: Promise<{ ws: string }> }) {
   const { ws } = await params;
-  const { supabase, ctx } = await requireWorkspace(ws);
+  const { supabase, ctx, user } = await requireWorkspace(ws);
   if (!isManager(ctx.role)) notFound();
   const [locs, tpls, subs, mems] = await Promise.all([
     supabase.from("locations").select("id, name").eq("workspace_id", ws).is("archived_at", null).order("name"),
     supabase.from("templates").select("id, name, latest_version, template_versions(id, version, attendance_mode)").eq("workspace_id", ws).order("name"),
-    supabase.from("subjects").select("id, name").eq("workspace_id", ws).is("archived_at", null).order("name"),
+    supabase.from("subjects").select("id, name").eq("workspace_id", ws).is("archived_at", null).eq("is_sample", false).order("name"),
     supabase.from("memberships").select("user_id, role, display_name, all_locations, membership_locations(location_id)")
       .eq("workspace_id", ws).eq("status", "active").in("role", ["owner", "admin", "reviewer", "assessor"]).order("display_name"),
   ]);
@@ -48,7 +48,8 @@ export default async function NewSessionPage({ params }: { params: Promise<{ ws:
   return (
     <section className="card">
       <h1>New session</h1>
-      <p className="muted small">The session opens immediately. Collection closes after the window (default 48 hours, server time).</p>
+      <p className="muted small">This saves a <strong>draft</strong>. Assessors cannot see or submit it until you review it and press Open on the session page; owners, admins and the session’s reviewers can prepare it.
+        Collection then runs for the window you set (default 48 hours, counted from opening). You can finish the roster, assessors and reviewers on the draft.</p>
       <ActionForm action={createSession}>
         <input type="hidden" name="ws" value={ws} />
         <div className="field"><label htmlFor="name">Session name</label><input id="name" name="name" required maxLength={120} /></div>
@@ -64,7 +65,7 @@ export default async function NewSessionPage({ params }: { params: Promise<{ ws:
           <div className="field"><label htmlFor="window_hours">Collection window (hours)</label>
             <input id="window_hours" name="window_hours" type="number" min={1} max={168} defaultValue={48} required /></div>
         </div>
-        <fieldset><legend>Roster subjects</legend>
+        <fieldset><legend>Roster subjects <span className="hint">(can be completed later on the draft)</span></legend>
           {subjects.map((s) => <label key={s.id} className="check"><input type="checkbox" name="subjects" value={s.id} /> {s.name}</label>)}
         </fieldset>
         <fieldset><legend>Assessors (each is assigned every roster subject)</legend>
@@ -72,11 +73,12 @@ export default async function NewSessionPage({ params }: { params: Promise<{ ws:
           {members.map((m) => <label key={m.user_id} className="check"><input type="checkbox" name="assessors" value={m.user_id} /> {m.display_name} <span className="hint">({ROLE_LABELS[m.role]}; {scope(m)})</span></label>)}
         </fieldset>
         <fieldset><legend>Reviewers</legend>
-          <p className="hint">Owners and admins can always review. Reviewers must be assigned here and hold the location.</p>
-          {members.filter((m) => m.role === "reviewer").map((m) => <label key={m.user_id} className="check"><input type="checkbox" name="reviewers" value={m.user_id} /> {m.display_name} <span className="hint">({scope(m)})</span></label>)}
-          {!members.some((m) => m.role === "reviewer") && <p className="muted small">No reviewers yet — invite one from Team.</p>}
+          <p className="hint">At least one reviewer is needed to open. Owners and admins may list themselves.</p>
+          {members.filter((m) => m.role === "reviewer" || m.role === "owner" || m.role === "admin").map((m) => (
+            <label key={m.user_id} className="check"><input type="checkbox" name="reviewers" value={m.user_id} defaultChecked={m.user_id === user.id} /> {m.display_name} <span className="hint">({ROLE_LABELS[m.role]}; {scope(m)})</span></label>
+          ))}
         </fieldset>
-        <SubmitButton pendingText="Creating…">Create and open session</SubmitButton>
+        <SubmitButton pendingText="Saving draft…">Save draft</SubmitButton>
       </ActionForm>
     </section>
   );

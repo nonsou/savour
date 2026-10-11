@@ -50,21 +50,96 @@ export async function cancelSession(_: ActionState, f: FormData) {
   return run(f, "cancel_session", { p_session: s(f, "session"), p_reason: s(f, "reason") }, "Session cancelled.");
 }
 
-export async function setAssignment(_: ActionState, f: FormData): Promise<ActionState> {
-  const { supabase } = await requireUser();
-  const subjects = f.getAll("subject").map(String).filter(Boolean);
-  if (!subjects.length) return { error: "Choose at least one subject." };
+// One database call per subject, each carrying the version returned by the previous call, so a
+// concurrent change elsewhere stops the batch with stale_version instead of overwriting it. Any
+// calls already made before a failure are reported honestly.
+async function batch(f: FormData, items: string[], call: (item: string, version: number | null) => PromiseLike<{ data: unknown; error: { message: string; details?: string | null } | null }>,
+  ok: string): Promise<ActionState> {
+  if (!items.length) return { error: "Choose at least one subject." };
   let version = n(f, "data_version");
-  for (const subject of subjects) {
-    const { data, error } = await supabase.rpc("set_assignment", {
-      p_session: s(f, "session"), p_subject: subject, p_user: s(f, "user"),
-      p_assigned: s(f, "assigned") === "true", p_expected_data_version: version,
-    });
-    if (error) return { error: friendlyError(error) };
+  let done = 0;
+  for (const item of items) {
+    const { data, error } = await call(item, version);
+    if (error) {
+      revalidatePath(`/w/${s(f, "ws")}/sessions/${s(f, "session")}`);
+      return { error: friendlyError(error) + (done ? ` ${done} of ${items.length} change(s) were saved before this; reload to see them.` : " Nothing was changed.") };
+    }
     version = data as number;
+    done += 1;
   }
   revalidatePath(`/w/${s(f, "ws")}/sessions/${s(f, "session")}`);
-  return { ok: "Assignments updated." };
+  return { ok };
+}
+
+export async function setAssignment(_: ActionState, f: FormData): Promise<ActionState> {
+  const { supabase } = await requireUser();
+  return batch(f, f.getAll("subject").map(String).filter(Boolean), (subject, version) => supabase.rpc("set_assignment", {
+    p_session: s(f, "session"), p_subject: subject, p_user: s(f, "user"),
+    p_assigned: s(f, "assigned") === "true", p_expected_data_version: version, p_reason: s(f, "reason") || null,
+  }), "Assignments updated.");
+}
+
+export async function setRosterSubjects(_: ActionState, f: FormData): Promise<ActionState> {
+  const { supabase } = await requireUser();
+  const on = s(f, "on") === "true";
+  return batch(f, f.getAll("subject").map(String).filter(Boolean), (subject, version) => supabase.rpc("set_roster_subject", {
+    p_session: s(f, "session"), p_subject: subject, p_on: on, p_reason: s(f, "reason") || null, p_expected_data_version: version,
+  }), on ? "Roster updated." : "Removed from the roster. Earlier responses are kept in history.");
+}
+
+export async function setReviewer(_: ActionState, f: FormData) {
+  return run(f, "set_session_reviewer", {
+    p_session: s(f, "session"), p_user: s(f, "user"), p_on: s(f, "on") === "true", p_reason: s(f, "reason") || null,
+    p_expected_data_version: n(f, "data_version"),
+  }, "Reviewers updated.");
+}
+
+export async function updateDraft(_: ActionState, f: FormData) {
+  return run(f, "update_session_draft", {
+    p_session: s(f, "session"), p_name: s(f, "name"), p_local_date: s(f, "local_date") || null, p_location: s(f, "location"),
+    p_template_version: s(f, "template_version"), p_window_hours: n(f, "window_hours"), p_ready_time: s(f, "ready_time") || null,
+    p_expected_data_version: n(f, "data_version"),
+  }, "Draft saved.");
+}
+
+export async function openSession(_: ActionState, f: FormData) {
+  if (f.get("confirm") !== "on") return { error: "Tick the confirmation box to open collection." };
+  return run(f, "open_session", { p_session: s(f, "session"), p_expected_data_version: n(f, "data_version") },
+    "Opened. Assigned assessors can now see and submit their subjects.");
+}
+
+export async function updateWindow(_: ActionState, f: FormData) {
+  return run(f, "update_session_window", {
+    p_session: s(f, "session"), p_hours: n(f, "hours"), p_reason: s(f, "reason") || null, p_expected_data_version: n(f, "data_version"),
+  }, "Collection window updated.");
+}
+
+export async function reopenCollection(_: ActionState, f: FormData) {
+  if (f.get("confirm") !== "on") return { error: "Tick the confirmation box to reopen collection." };
+  return run(f, "reopen_collection", {
+    p_session: s(f, "session"), p_hours: n(f, "hours"), p_reason: s(f, "reason"), p_expected_data_version: n(f, "data_version"),
+  }, "Collection reopened. Expired or revoked guests need a new invitation.");
+}
+
+export async function setWaiver(_: ActionState, f: FormData) {
+  const waive = s(f, "waive") === "true";
+  return run(f, "set_waiver", {
+    p_session: s(f, "session"), p_subject: s(f, "subject"), p_assessor: s(f, "assessor"), p_waive: waive,
+    p_reason: s(f, "reason") || null, p_expected_data_version: n(f, "data_version"),
+  }, waive ? "Waived. The response still counts as missing in every report." : "Waiver removed.");
+}
+
+export async function requestCorrection(_: ActionState, f: FormData) {
+  return run(f, "request_correction", {
+    p_session: s(f, "session"), p_subject: s(f, "subject"), p_assessor: s(f, "assessor"), p_reason: s(f, "reason"),
+    p_expected_data_version: n(f, "data_version"),
+  }, "Correction requested. The assessor sees it on their assessment page. Approval waits until it is resolved.");
+}
+
+export async function withdrawCorrection(_: ActionState, f: FormData) {
+  return run(f, "withdraw_correction", {
+    p_request: s(f, "request"), p_reason: s(f, "reason"), p_expected_data_version: n(f, "data_version"),
+  }, "Correction request withdrawn.");
 }
 
 export async function inviteGuest(_: ActionState, f: FormData): Promise<ActionState> {

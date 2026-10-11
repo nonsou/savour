@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { answerText, reportHeaderRows, summaryRows, type ReportEnvelope } from "./report";
+import { answerText, formatDateTime, reportHeaderRows, SAMPLE_NOTICE, summaryRows, type ReportEnvelope } from "./report";
 import { formatPct, OUTCOME_LABELS, summarizeSession, subjectStatusLabel } from "./scoring";
 
 const FONT_DIR = join(process.cwd(), "src", "assets", "fonts");
@@ -84,6 +84,8 @@ const loadFonts = () => (fontCache ??= Promise.all([
   readFile(join(FONT_DIR, "NotoSans-Regular.ttf")), readFile(join(FONT_DIR, "NotoSans-Bold.ttf")),
 ]).then(([a, b]) => [new Uint8Array(a), new Uint8Array(b)]));
 
+const sum0 = (env: ReportEnvelope) => (env.inputs.session.is_sample ? "SAMPLE - " : "");
+
 export async function buildPdf(env: ReportEnvelope, generatedAt = new Date()): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
@@ -94,7 +96,7 @@ export async function buildPdf(env: ReportEnvelope, generatedAt = new Date()): P
   const { clean, missing } = makeSanitizer(font);
 
   const s = env.inputs.session;
-  doc.setTitle(clean(`SAVOUR report - ${s.name} - ${s.local_date} - r${env.meta.revision}`));
+  doc.setTitle(clean(`SAVOUR report - ${sum0(env)}${s.name} - ${s.local_date} - r${env.meta.revision}`));
   doc.setAuthor("SAVOUR");
   doc.setCreator("SAVOUR");
   doc.setProducer("SAVOUR");
@@ -107,6 +109,7 @@ export async function buildPdf(env: ReportEnvelope, generatedAt = new Date()): P
   const sum = summarizeSession(env.inputs);
 
   w.text("SAVOUR session report", { size: 16, bold: true });
+  if (sum.isSample) w.text(SAMPLE_NOTICE, { size: 11, bold: true, color: [0.7, 0.2, 0.1] });
   if (env.meta.status !== "approved") w.text("PROVISIONAL - NOT APPROVED", { size: 11, bold: true, color: [0.7, 0.2, 0.1] });
   w.gap(4);
   for (const [k, v] of reportHeaderRows(env, generatedAt)) w.text(`${k}: ${v}`);
@@ -129,6 +132,10 @@ export async function buildPdf(env: ReportEnvelope, generatedAt = new Date()): P
     w.text(`${r.name} - ${OUTCOME_LABELS[r.outcome]}${r.outcomeReason ? ` (${r.outcomeReason})` : ""}`, { bold: true });
     if (r.assessments.length === 0) w.text("No current responses.", { x: M + 10 });
     if (r.status === "mixed_na") w.text(`Assessors used ${r.applicabilitySets.length} different N/A patterns, so no combined subject score is shown.`, { x: M + 10 });
+    if (r.restored) w.text(`Restored to the roster${r.restored.reason ? ` (${r.restored.reason})` : ""}; earlier responses were retained.`, { x: M + 10 });
+    for (const wv of r.waivers) {
+      w.text(`${wv.assessor_label}: response waived - ${wv.reason} (${formatDateTime(wv.waived_at, env.inputs.workspace.timezone)}). Still counted as missing.`, { x: M + 10, color: [0.6, 0.35, 0.05] });
+    }
     for (const a of r.assessments) {
       const answers = env.inputs.template.criteria
         .map((c) => `${c.label} ${a.answers ? answerText(a.answers[c.key]) : "-"}`).join(", ");
@@ -137,8 +144,15 @@ export async function buildPdf(env: ReportEnvelope, generatedAt = new Date()): P
       if (a.absence_reason) w.text(`Absence reason: ${a.absence_reason}`, { x: M + 20, color: [0.3, 0.3, 0.3] });
     }
   }
+  if (sum.removed.length) {
+    w.gap();
+    w.text("Removed from roster (not in totals)", { size: 12, bold: true });
+    for (const r of sum.removed) {
+      w.text(`${r.name}${r.reason ? ` - ${r.reason}` : ""}; removed ${formatDateTime(r.removed_at, env.inputs.workspace.timezone)}; ${r.retained_responses} response(s) retained in history.`, { x: M + 10 });
+    }
+  }
   w.gap();
-  w.text("Scoring definitions: quality % = applicable scores / (5 x applicable criteria). N/A is excluded from the denominator; all N/A is Not assessed. Combined % (scored readiness only) = (quality points + attendance points) / (quality maximum + 5). Absence has no quality or combined score. Subjects with missing responses or mixed N/A patterns are excluded from averages. Free-text notes may contain names; review before sharing.", { size: 8, color: [0.3, 0.3, 0.3] });
+  w.text("Scoring definitions: quality % = applicable scores / (5 x applicable criteria). N/A is excluded from the denominator; all N/A is Not assessed. Combined % (scored readiness only) = (quality points + attendance points) / (quality maximum + 5). Absence has no quality or combined score. Subjects with missing responses (including waived responses) or mixed N/A patterns are excluded from averages. Free-text notes may contain names; review before sharing.", { size: 8, color: [0.3, 0.3, 0.3] });
   if (missing() > 0) {
     w.text(`${missing()} character(s) could not be drawn with the report font and are shown as ${REPLACEMENT}. The CSV export contains the exact original text.`, { size: 8, bold: true, color: [0.7, 0.2, 0.1] });
   }

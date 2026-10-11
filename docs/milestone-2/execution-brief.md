@@ -1,6 +1,6 @@
 # SAVOUR Milestone 2 execution brief
 
-Status: authorized development; architecture and implementation pending.
+Status: implementation and development-database upgrade complete; independent acceptance and protected Preview preparation in progress.
 
 The founder accepted the Milestone 1 demonstration and explicitly authorized Milestone 2 under the same development-only rules. Local code, tests, feature branches, commits and pushes, protected Preview deployments and disposable development data are permitted until demonstration. Production merges/changes, Firebase MVP changes and new spending require separate approval. Base commit: ee1bd87. Branch: feat/saas-milestone-2. Canonical PRD and SOP remain the private Notion documents.
 

@@ -51,6 +51,7 @@ export function TemplateEditor({ ws, templateId, name, pack, mode, criteria, act
         ))}
         <button type="button" className="btn" onClick={() => setRows([...rows, { key: "", label: "", allow_na: false, isNew: true }])}>Add criterion</button>
       </fieldset>
+      {attendance === "scored" && finalRows.length === 0 && <p className="notice">Attendance only: reports show readiness and attendance with no quality score.</p>}
       {problem && <p className="notice warn">{problem}</p>}
       <p className="muted small">Publishing creates a new immutable version. Sessions already created keep the version they started with.</p>
       <SubmitButton pendingText="Publishing…">Publish version</SubmitButton>

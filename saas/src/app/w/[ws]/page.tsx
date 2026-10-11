@@ -1,8 +1,12 @@
 import Link from "next/link";
+import { ActionForm, SubmitButton } from "@/components/forms";
 import { isManager, requireWorkspace } from "@/lib/auth";
-import { SESSION_STATUS_LABELS } from "@/lib/labels";
-import { formatLocalDate, overviewMetrics, setupChecklist, type Dashboard } from "@/lib/report";
+import { ATTENDANCE_MODE_LABELS, SESSION_STATUS_LABELS } from "@/lib/labels";
+import { formatLocalDate, overviewMetrics, partitionReports, setupSteps, type Dashboard, type SetupProgress } from "@/lib/report";
 import { formatPct, rollupByTemplate, summarizeSession } from "@/lib/scoring";
+import { createSample } from "./sessions/actions";
+
+interface Tpl { id: string; name: string; latest_version: number; template_versions: { id: string; version: number; attendance_mode: string }[] }
 
 export const metadata = { title: "Overview — SAVOUR" };
 
@@ -11,9 +15,9 @@ export default async function Overview({ params }: { params: Promise<{ ws: strin
   const { supabase, ctx } = await requireWorkspace(ws);
 
   if (ctx.role === "assessor" || ctx.role === "guest") {
-    const { data, error } = await supabase.from("sessions").select("id, name, local_date, status, closes_at")
+    const { data, error } = await supabase.from("sessions").select("id, name, local_date, status, closes_at, is_sample")
       .eq("workspace_id", ws).order("local_date", { ascending: false });
-    const rows = (data ?? []) as { id: string; name: string; local_date: string; status: string; closes_at: string }[];
+    const rows = (data ?? []) as { id: string; name: string; local_date: string; status: string; closes_at: string; is_sample: boolean }[];
     return (
       <>
         <h1>My sessions</h1>
@@ -25,6 +29,7 @@ export default async function Overview({ params }: { params: Promise<{ ws: strin
               <h2>{r.name}</h2>
               <p className="small muted">{formatLocalDate(r.local_date)}</p>
               <span className={`badge ${r.status}`}>{SESSION_STATUS_LABELS[r.status]}</span>
+              {r.is_sample && <span className="badge sample"> SAMPLE</span>}
             </Link>
           ))}
         </div>
@@ -32,20 +37,26 @@ export default async function Overview({ params }: { params: Promise<{ ws: strin
     );
   }
 
-  const [{ data, error }, checklist] = await Promise.all([
+  const manager = isManager(ctx.role);
+  const [{ data, error }, progressRes, tplRes, locRes] = await Promise.all([
     supabase.rpc("get_dashboard", { p_ws: ws }),
-    isManager(ctx.role) ? Promise.all(["locations", "subjects", "templates", "sessions"].map((t) =>
-      supabase.from(t).select("id", { count: "exact", head: true }).eq("workspace_id", ws).then((r) => (r.error ? null : r.count ?? 0)))) : null,
+    manager ? supabase.rpc("get_setup_progress", { p_ws: ws }) : null,
+    manager ? supabase.from("templates").select("id, name, latest_version, template_versions(id, version, attendance_mode)").eq("workspace_id", ws).order("name") : null,
+    manager ? supabase.from("locations").select("id, name").eq("workspace_id", ws).is("archived_at", null).order("name") : null,
   ]);
   const dash = error ? null : (data as Dashboard | null);
   const metrics = overviewMetrics(dash);
-  const reports = metrics ? dash!.approved : [];
+  const parts = metrics ? partitionReports(dash!.approved) : null;
+  const reports = parts?.business ?? [];
   const rollup = rollupByTemplate(reports.map((r) => r.inputs));
-  const setup = checklist ? setupChecklist(checklist) : null;
-  const steps: [string, number | null, string][] = checklist ? [
-    ["Create a location", checklist[0], `/w/${ws}/setup`], ["Add subjects", checklist[1], `/w/${ws}/setup`],
-    ["Publish a template (starter pack)", checklist[2], `/w/${ws}/templates`], ["Run a first session", checklist[3], `/w/${ws}/sessions/new`],
-  ] : [];
+  const progress = progressRes && !progressRes.error ? (progressRes.data as SetupProgress) : null;
+  const steps = progress ? setupSteps(progress, ws) : [];
+  const setupIncomplete = steps.some((x) => !x.done && !x.optional);
+  const versions = ((tplRes?.data ?? []) as Tpl[]).flatMap((t) => {
+    const v = t.template_versions.find((x) => x.version === t.latest_version);
+    return v ? [{ id: v.id, label: `${t.name} v${v.version} — ${ATTENDANCE_MODE_LABELS[v.attendance_mode]}` }] : [];
+  });
+  const locations = (locRes?.data ?? []) as { id: string; name: string }[];
 
   return (
     <>
@@ -53,16 +64,41 @@ export default async function Overview({ params }: { params: Promise<{ ws: strin
         <h1>Overview</h1>
         {reports.length > 0 && <a className="btn" href={`/w/${ws}/export`}>Download CSV</a>}
       </div>
-      {setup && !setup.known && <p className="notice warn">Setup progress could not be checked. Reload to try again.</p>}
-      {setup?.incomplete && (
+      {manager && progressRes?.error && <p className="notice warn">Setup progress could not be checked. Reload to try again.</p>}
+      {setupIncomplete && (
         <section className="card highlight">
           <h2>Get started</h2>
-          <ol>{steps.map(([label, n, href]) => <li key={label}>{n ? "✓ " : ""}<Link href={href}>{label}</Link></li>)}
-            <li><Link href={`/w/${ws}/team`}>Invite a reviewer</Link></li></ol>
+          <ul className="steps">{steps.map((x) => (
+            <li key={x.key}><span className={x.done ? "done" : "muted"} aria-hidden="true">{x.done ? "✓" : "○"}</span>
+              <Link href={x.href}>{x.label}</Link>{x.optional && <span className="hint">optional</span>}
+              <span className="sr-only">{x.done ? "done" : "not done"}</span></li>
+          ))}</ul>
+        </section>
+      )}
+      {manager && progress && (
+        <section className="card stack">
+          <h2>Practice inspection</h2>
+          <p className="small">Creates a <strong>SAMPLE</strong> session with two practice subjects suited to the template. You are the assessor and
+            reviewer, so you can try assessment, review, approval and reports. Samples never count in totals, dashboards or setup progress.</p>
+          {progress.samples.latest_session_id && <p className="small"><Link href={`/w/${ws}/sessions/${progress.samples.latest_session_id}`}>Open your latest sample</Link>
+            {" "}({progress.samples.sessions} sample session(s), {progress.samples.approved} approved)</p>}
+          {versions.length && locations.length ? (
+            <ActionForm action={createSample}>
+              <input type="hidden" name="ws" value={ws} />
+              <div className="grid">
+                <div className="field"><label htmlFor="sample-tpl">Template</label>
+                  <select id="sample-tpl" name="template_version" required>{versions.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}</select></div>
+                <div className="field"><label htmlFor="sample-loc">Location</label>
+                  <select id="sample-loc" name="location" required>{locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
+              </div>
+              <SubmitButton className="btn" pendingText="Creating sample…">Start a SAMPLE inspection</SubmitButton>
+            </ActionForm>
+          ) : <p className="muted small">Add a location and install a starter pack first.</p>}
         </section>
       )}
       {!metrics && <p className="notice error" role="alert">Analytics are unavailable right now, so no figures are shown. Reload to try again.</p>}
-      <p className="muted small">Approved current revisions only. Sessions under revision are listed separately and excluded. Timezone: {ctx.workspace.timezone}.</p>
+      {(parts?.unsupported.length ?? 0) > 0 && <p className="notice error" role="alert">{parts!.unsupported.length} approved report(s) use a calculation this version cannot show. They are left out of every figure below.</p>}
+      <p className="muted small">Approved current revisions only. Sessions under revision and SAMPLE practice sessions are excluded. Timezone: {ctx.workspace.timezone}.</p>
       <div className="grid">
         <div className="card"><div className="stat">{metrics?.approved ?? "—"}</div><div>Approved sessions</div></div>
         <div className="card"><div className="stat">{metrics?.subjectsScored ?? "—"}</div><div>Distinct subjects with a quality score</div></div>
@@ -94,8 +130,8 @@ export default async function Overview({ params }: { params: Promise<{ ws: strin
                 <tr key={r.session_id}>
                   <td><Link href={`/w/${ws}/sessions/${r.session_id}/report`}>{r.inputs.session.name}</Link></td>
                   <td>{formatLocalDate(r.inputs.session.local_date)}</td>
-                  <td>{formatPct(s.quality.mean, "No data")}</td>
-                  <td>{s.coverage.pct === null ? "N/A" : `${s.coverage.complete}/${s.coverage.due}`}</td>
+                  <td>{s.attendanceOnly ? "Attendance only" : formatPct(s.quality.mean, "No data")}</td>
+                  <td>{s.coverage.pct === null ? "N/A" : `${s.coverage.complete}/${s.coverage.due}`}{s.coverage.waivedSubjects ? <div className="hint">{s.coverage.waivedSubjects} with waived work</div> : null}</td>
                   <td>r{r.revision}</td>
                 </tr>
               );
@@ -107,7 +143,7 @@ export default async function Overview({ params }: { params: Promise<{ ws: strin
         <section className="card">
           <h2>Under revision</h2>
           <ul>{dash!.under_revision.map((u) => (
-            <li key={u.session_id}><Link href={`/w/${ws}/sessions/${u.session_id}`}>{u.name}</Link> — {formatLocalDate(u.local_date)}, revision {u.revision}{u.reason ? ` (${u.reason})` : ""}</li>
+            <li key={u.session_id}><Link href={`/w/${ws}/sessions/${u.session_id}`}>{u.name}</Link> — {formatLocalDate(u.local_date)}, revision {u.revision}{u.status === "open" ? ", collection reopened" : ""}{u.reason ? ` (${u.reason})` : ""}</li>
           ))}</ul>
         </section>
       )}

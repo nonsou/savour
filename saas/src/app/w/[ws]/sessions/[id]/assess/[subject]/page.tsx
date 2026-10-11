@@ -24,6 +24,7 @@ export default async function AssessPage({ params, searchParams }: {
   const existing = d.assessments.find((a) => a.subject_id === subject && a.assessor_id === target) ?? null;
   const backHref = `/w/${ws}/sessions/${id}`;
   const blocked = roster.outcome === "absent" || roster.outcome === "not_assessed";
+  const correction = d.corrections.find((c) => c.subject_id === subject && c.assessor_id === target && c.status === "open");
 
   return (
     <section className="card stack">
@@ -33,6 +34,13 @@ export default async function AssessPage({ params, searchParams }: {
           {d.session.expected_ready_time && ` · Ready by ${d.session.expected_ready_time.slice(0, 5)}`}
           {target !== d.user.id && ` · Amending ${existing?.assessor_name ?? "an assessor"}'s response`}</p>
       </div>
+      {d.session.is_sample && <p className="notice sample">SAMPLE — practice inspection. Never counted in business totals.</p>}
+      {correction && (
+        <div className="notice warn" role="status">
+          <strong>Correction requested by {correction.requester_name}:</strong> {correction.reason}
+          <div className="hint">{target === d.user.id ? "Update your response below and save; the request closes when your corrected response is saved." : "Saving an amendment with a reason resolves this request."}</div>
+        </div>
+      )}
       {!editable || (!amend && !collecting) ? (
         <p className="notice warn">This assessment can no longer be changed here (collection closed or session locked).</p>
       ) : blocked ? (

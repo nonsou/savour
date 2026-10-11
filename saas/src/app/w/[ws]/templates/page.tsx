@@ -22,7 +22,7 @@ export default async function TemplatesPage({ params }: { params: Promise<{ ws: 
   const templates = (data ?? []) as Template[];
   return (
     <>
-      <h1>Categories &amp; templates</h1>
+      <h1>Templates</h1>
       {error && <p className="notice error">Could not load templates. Reload to try again.</p>}
       <section className="card">
         <h2>Starter packs</h2>

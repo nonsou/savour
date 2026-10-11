@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { canSeeReports, isUuid, requireWorkspace } from "@/lib/auth";
 import { friendlyError } from "@/lib/errors";
-import { answerText, reportHeaderRows, summaryRows, type ReportEnvelope } from "@/lib/report";
-import { formatPct, OUTCOME_LABELS, subjectStatusLabel, summarizeSession } from "@/lib/scoring";
+import { answerText, formatDateTime, reportHeaderRows, SAMPLE_NOTICE, summaryRows, type ReportEnvelope } from "@/lib/report";
+import { formatPct, isKnownFormula, OUTCOME_LABELS, subjectStatusLabel, summarizeSession } from "@/lib/scoring";
 
 export const metadata = { title: "Report — SAVOUR" };
 
@@ -27,8 +27,20 @@ export default async function ReportPage({ params, searchParams }: {
     );
   }
   const env = data as ReportEnvelope;
+  if (!isKnownFormula(env.inputs.formula_version)) {
+    return (
+      <div className="card stack">
+        <h1>Report</h1>
+        <p className="notice error" role="alert">This report was calculated with formula “{env.inputs.formula_version}”, which this version of SAVOUR cannot show.
+          No figures are displayed rather than recalculating them differently.</p>
+        <Link className="btn" href={`/w/${ws}/sessions/${id}`}>Back to session</Link>
+      </div>
+    );
+  }
   const sum = summarizeSession(env.inputs);
   const criteria = env.inputs.template.criteria;
+  const scoredMode = env.inputs.template.attendance_mode === "scored";
+  const tz = env.inputs.workspace.timezone;
   const q = (extra: Record<string, string>) => {
     const p = new URLSearchParams();
     if (revision !== null) p.set("revision", String(revision));
@@ -49,6 +61,7 @@ export default async function ReportPage({ params, searchParams }: {
       </div>
       <section className={`card stack ${env.meta.status === "approved" ? "highlight" : ""}`}>
         <h1>{env.inputs.session.name}</h1>
+        {sum.isSample && <p className="notice sample">{SAMPLE_NOTICE}</p>}
         {env.meta.status !== "approved" && <p className="notice warn">Provisional — not approved. Figures may change and are excluded from analytics.</p>}
         {env.meta.status === "approved" && !env.meta.is_current && <p className="notice warn">This is an earlier approved revision. The session has since been reopened{env.meta.reopen_reason ? ` (“${env.meta.reopen_reason}”)` : ""}.</p>}
         <dl className="small">
@@ -74,16 +87,16 @@ export default async function ReportPage({ params, searchParams }: {
         <h2>Subjects</h2>
         {sum.subjects.length === 0 ? <p className="muted">No subjects on this roster.</p> : (
           <table>
-            <thead><tr><th>Subject</th><th>Outcome</th>{env.inputs.template.attendance_mode === "scored" && <th>Attendance</th>}<th>Quality</th>{env.inputs.template.attendance_mode === "scored" && <th>Combined</th>}<th>Assessors</th><th>Status</th></tr></thead>
+            <thead><tr><th>Subject</th><th>Outcome</th>{scoredMode && <th>Attendance</th>}{!sum.attendanceOnly && <th>Quality</th>}{scoredMode && !sum.attendanceOnly && <th>Combined</th>}{!sum.attendanceOnly && <th>Responses</th>}<th>Status</th></tr></thead>
             <tbody>
               {sum.subjects.map((s) => (
                 <tr key={s.subjectId}>
                   <td>{s.name}</td>
                   <td>{OUTCOME_LABELS[s.outcome]}{s.outcomeReason && <div className="hint">{s.outcomeReason}</div>}</td>
-                  {env.inputs.template.attendance_mode === "scored" && <td>{s.attendancePoints === null ? "—" : `${s.attendancePoints}/5`}</td>}
-                  <td>{formatPct(s.quality, "—")}{!s.comparable && <div className="hint">Mixed N/A sets</div>}</td>
-                  {env.inputs.template.attendance_mode === "scored" && <td>{formatPct(s.combined, "—")}</td>}
-                  <td>{s.assessorsScored} of {s.requiredAssessors}</td>
+                  {scoredMode && <td>{s.attendancePoints === null ? "—" : `${s.attendancePoints}/5`}</td>}
+                  {!sum.attendanceOnly && <td>{formatPct(s.quality, "—")}{!s.comparable && <div className="hint">Mixed N/A sets</div>}</td>}
+                  {scoredMode && !sum.attendanceOnly && <td>{formatPct(s.combined, "—")}</td>}
+                  {!sum.attendanceOnly && <td>{s.completeResponses} of {s.requiredAssessors}{s.waivedAssessors ? <div className="hint">{s.waivedAssessors} waived (missing)</div> : null}</td>}
                   <td>{subjectStatusLabel(s)}</td>
                 </tr>
               ))}
@@ -97,6 +110,8 @@ export default async function ReportPage({ params, searchParams }: {
         {sum.subjects.map((s) => (
           <div key={s.subjectId}>
             <h3>{s.name}</h3>
+            {s.restored && <p className="hint">Restored to the roster {formatDateTime(s.restored.restored_at, tz)}{s.restored.reason ? ` (${s.restored.reason})` : ""}; earlier responses were retained.</p>}
+            {s.waivers.map((w, i) => <p key={`w${i}`} className="small notice warn">{w.assessor_label}: response waived — {w.reason} ({formatDateTime(w.waived_at, tz)}). Still counted as missing.</p>)}
             {s.assessments.length === 0 && <p className="muted small">No current responses.</p>}
             {s.assessments.map((a, i) => (
               <p key={i} className="small">
@@ -111,6 +126,16 @@ export default async function ReportPage({ params, searchParams }: {
           </div>
         ))}
       </section>
+
+      {sum.removed.length > 0 && (
+        <section className="card stack">
+          <h2>Removed from roster</h2>
+          <p className="small muted">Not included in any figure above. Their responses are kept in history.</p>
+          <ul className="small">{sum.removed.map((r) => (
+            <li key={r.subject_id}>{r.name}{r.reason ? ` — ${r.reason}` : ""} ({formatDateTime(r.removed_at, tz)}; {r.retained_responses} response(s) retained)</li>
+          ))}</ul>
+        </section>
+      )}
     </>
   );
 }

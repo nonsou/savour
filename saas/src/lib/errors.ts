@@ -50,6 +50,33 @@ const MESSAGES: Record<string, string> = {
   template_needs_criteria: "Add at least one criterion, or use scored attendance.",
   invalid_criteria: "Check the criteria",
   immutable_record: "Approved and published records cannot be changed.",
+  // Milestone 2
+  duplicate_name: "That name is already used",
+  duplicate_external_id: "That external ID is already used by another subject",
+  invalid_type: "Choose a subject type.",
+  invalid_external_id: "External IDs are at most 64 characters, without line breaks.",
+  invalid_contact: "Contact name is at most 120 characters and phone at most 40.",
+  import_empty: "The file has no subjects.",
+  import_too_large: "At most 500 subjects per import.",
+  invalid_import: "The file could not be read",
+  import_invalid: "Nothing was imported because some rows have errors",
+  stale_preview: "The directory changed since you checked this file. Check it again before importing. Nothing was imported.",
+  reviewer_required: "A session needs at least one reviewer.",
+  open_blocked: "The session cannot open yet",
+  already_on_roster: "That subject is already on the roster.",
+  subject_removed: "That subject was removed from this session's roster.",
+  reason_too_long: "Reasons are limited to 500 characters.",
+  reopen_report_first: "Reopen the approved report for revision first, then reopen collection.",
+  own_waiver_forbidden: "Reviewers cannot waive their own assigned work. Ask an owner or admin.",
+  already_waived: "That response is already waived.",
+  outcome_required: "Record the subject's final outcome before waiving a response.",
+  waiver_not_needed: "No waiver is needed: this subject needs no quality responses.",
+  response_present: "That assessor already submitted a complete response, so there is nothing to waive.",
+  collection_closed: "Collection is closed. Reopen collection before requesting a correction.",
+  invalid_target: "You cannot request a correction from yourself; amend your own response instead.",
+  nothing_to_correct: "That assessor has not submitted anything to correct yet.",
+  correction_open: "A correction request is already open for that response.",
+  invitation_scope_conflict: "This invitation would remove subjects that already have this guest's responses or waivers. Ask for an invitation that includes",
 };
 
 export interface DbError { message?: string; details?: string | null; code?: string }
@@ -59,7 +86,8 @@ export function friendlyError(error: DbError | null | undefined): string {
   const code = error.message ?? "";
   const base = MESSAGES[code];
   if (!base) return "The request failed. Nothing was saved. Please try again.";
-  return error.details && ["approval_blocked", "invalid_criteria", "not_found"].includes(code)
+  return error.details && ["approval_blocked", "invalid_criteria", "not_found", "open_blocked", "duplicate_name",
+    "duplicate_external_id", "import_invalid", "invalid_import", "invitation_scope_conflict"].includes(code)
     ? `${base}: ${error.details}`
     : base;
 }

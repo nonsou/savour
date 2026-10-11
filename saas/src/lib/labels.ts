@@ -4,7 +4,7 @@ export const SUBJECT_TYPES: [string, string][] = [
 ];
 
 export const SESSION_STATUS_LABELS: Record<string, string> = {
-  open: "Open", in_review: "In review", approved: "Approved", cancelled: "Cancelled",
+  draft: "Draft (not collecting)", open: "Open", in_review: "In review", approved: "Approved", cancelled: "Cancelled",
 };
 
 export const ATTENDANCE_MODE_LABELS: Record<string, string> = {

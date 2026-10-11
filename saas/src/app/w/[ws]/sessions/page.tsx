@@ -5,13 +5,13 @@ import { formatLocalDate } from "@/lib/report";
 
 export const metadata = { title: "Sessions — SAVOUR" };
 
-interface Row { id: string; name: string; local_date: string; status: string; revision: number; locations: { name: string } | null }
+interface Row { id: string; name: string; local_date: string; status: string; revision: number; is_sample: boolean; locations: { name: string } | null }
 
 export default async function SessionsPage({ params }: { params: Promise<{ ws: string }> }) {
   const { ws } = await params;
   const { supabase, ctx } = await requireWorkspace(ws);
   const { data, error } = await supabase.from("sessions")
-    .select("id, name, local_date, status, revision, locations(name)")
+    .select("id, name, local_date, status, revision, is_sample, locations(name)")
     .eq("workspace_id", ws).order("local_date", { ascending: false }).order("created_at", { ascending: false }).limit(200);
   const rows = (data ?? []) as unknown as Row[];
   return (
@@ -34,7 +34,8 @@ export default async function SessionsPage({ params }: { params: Promise<{ ws: s
                   <td>{formatLocalDate(r.local_date)}</td>
                   <td>{r.locations?.name ?? "—"}</td>
                   <td><span className={`badge ${r.status}`}>{SESSION_STATUS_LABELS[r.status]}</span>
-                    {r.revision > 1 && r.status === "in_review" && <span className="badge in_review"> Under revision (r{r.revision})</span>}</td>
+                    {r.revision > 1 && (r.status === "in_review" || r.status === "open") && <span className="badge in_review"> Under revision (r{r.revision})</span>}
+                    {r.is_sample && <span className="badge sample"> SAMPLE</span>}</td>
                 </tr>
               ))}
             </tbody>
