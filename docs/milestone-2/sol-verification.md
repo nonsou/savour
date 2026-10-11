@@ -37,3 +37,9 @@ Final rebuilt UI regression, protected Preview, commit/push and Notion evidence 
 ### Final local gate
 
 Independent final suite:164 passed,1 optional fixture writer skipped. Final separate build compiled successfully. Independent lint caught an unescaped JSX apostrophe in draft help copy; corrected typographically and lint passed. Final rebuilt browser confirms removed subjects no longer appear as unnamed assessment rows, and restoration/reapproval succeeds. Seven legacy snapshot baselines remain pinned. No root MVP byte changes or environment files staged.
+
+## Hosted development checkpoint
+
+Source5ad0021, protected Preview https://savour-1b1hl27e4-nonsous-projects.vercel.app, dpl_D4gUhJp7tXwUqyeREa9DTjQhXhYJ. Vercel inspect confirms READY/preview. Remote Next build passed with Production guard explicitly confirming Preview. Upload manifest excludes environment files and QA outputs. Login200; anonymous session CSV401 with private,no-store. Supabase exact callback/SiteURL saved and reload-verified. The approved static Production deployment remains dpl_GsAftswtQAZtJ2Y5kdiL5Ff8iLgx unchanged.
+
+Owner’s normal sign-in email sent; founder email-link opening is pending. Full local signed-in QA is complete; hosted authenticated verification and founder demonstration are pending. Both canonical Notion documents were appended and refetched to confirm this checkpoint. Main/Firebase remain unchanged.
