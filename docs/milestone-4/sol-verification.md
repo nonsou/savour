@@ -48,3 +48,8 @@ Database confirms both secrets stored, no pending key; Bachs sandbox webhook lis
 Founder requested visible saved-key/code status. Actual Opus5.5 sessiond1a1ce1f-95ea-4661-ae49-5007a2b7872b supplied focused edits; Sol applied/reviewed them and added immediate stored placeholders/feedback plus MFA automatic refresh and code clearing on error. No secret/OTP is restored in an input. Saved-only pending keys no longer claim not stored; stored credentials show Replace buttons; credential/test success refreshes metadata/version; non-MFA failures no longer claim authentication is necessarily at fault.
 
 Typecheck/lint and six relevant existing UI tests pass. Applicationcommite034498 pushed. New protected Preview READY https://savour-cx6anbc2p-nonsous-projects.vercel.app, dpl_4bvd4LaTfhH8h4ogrAKhCEEh6zxM, targetPreview, hosted build35seconds. Added exact callback preserving eight prior URLs; unchanged SiteURL. Billing allowed browser origin now newPreview. Owner sign-in email sent, authenticated browser/mobile UX verification pending. No credential re-entry required. Production placeholder/main/Firebase unchanged.
+
+
+## Stored UX authenticated browser observation
+
+Founder signed into the new Preview; actual owner/admin page displays API key Stored and verified, webhook secret Stored, hidden-value placeholders, Stored securely help and Replace buttons. No secret values read. Measured viewport390x844, document scrollWidth390, password fonts16px, Replace buttons44px. Saved /tmp/savour-m4-stored-ux-mobile.png; viewport reset. New session aal1 shows Verification required with enrolled authenticator. Awaiting founder verification to exercise automatic post-MFA/page refresh and subsequent read-only connection test. No key rotation or live activation.
