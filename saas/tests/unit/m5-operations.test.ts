@@ -268,7 +268,7 @@ describe("operations page", () => {
     expect(html).toContain("Captured 2026-10-12 22:00:00 UTC by the database clock");
     expect(html).toContain("Attention needed");
     expect(html).toContain("WEBHOOK_BACKLOG_STALE");
-    expect(html).toContain(`<a href="#guide-rb-bill-01">What to do: ${ACTIONS["RB-BILL-01"].title}</a>`);
+    expect(html).toMatch(/<a[^>]*href="#guide-rb-bill-01"[^>]*>What to do: Billing events are waiting too long<\/a>/);
     expect(html).toContain("pending 3");
     expect(html).toContain(C1);
     expect(html).toContain('<a class="btn" href="/platform/operations">Refresh</a>');

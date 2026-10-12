@@ -42,7 +42,7 @@ export default async function PlatformPage() {
       <main className="container stack">
         <h1>Platform admin: payment providers</h1>
         <p className="notice sample">Sandbox only. No live keys are accepted and nothing here activates live payments. Times in UTC.</p>
-        <p><Link href="/platform/operations">Billing operations monitor (read-only)</Link></p>
+        <p><Link className="btn" href="/platform/operations">Billing operations monitor (read-only)</Link></p>
         {mfa ? (
           <p className="notice ok" role="status">Two-step verification: verified for this session.</p>
         ) : (
