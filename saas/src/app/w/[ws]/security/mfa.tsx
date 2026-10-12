@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export interface Factor { id: string; friendly_name?: string; status: string }
 
 export function MfaPanel({ initialFactors, initialAal }: { initialFactors: Factor[]; initialAal: string | null }) {
+  const router = useRouter();
   const [supabase] = useState(() => createClient());
   const [factors, setFactors] = useState<Factor[]>(initialFactors);
   const [aal, setAal] = useState<string | null>(initialAal);
@@ -28,16 +30,18 @@ export function MfaPanel({ initialFactors, initialAal }: { initialFactors: Facto
 
   async function verify(factorId: string) {
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: code.trim() });
+    setCode("");
     if (error) return setMsg({ kind: "error", text: "That code was not accepted. Check your authenticator app and try again." });
     setEnroll(null); setCode("");
-    setMsg({ kind: "ok", text: "Verified. This browser session is now at assurance level 2 (aal2)." });
+    setMsg({ kind: "ok", text: "Verified. This browser session is ready for protected changes." });
     await refresh();
+    router.refresh();
   }
 
   const verified = factors.filter((f) => f.status === "verified");
   return (
     <div className="stack">
-      <p>Current session assurance level: <strong>{aal ?? "…"}</strong></p>
+      <p>Session verification: <strong>{aal === "aal2" ? "Verified" : aal ? "Verification required" : "Checking…"}</strong></p>
       {verified.length > 0 ? (
         <div className="stack">
           <p className="notice ok">Authenticator app enrolled.</p>

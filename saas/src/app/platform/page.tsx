@@ -42,7 +42,9 @@ export default async function PlatformPage() {
       <main className="container stack">
         <h1>Platform admin: payment providers</h1>
         <p className="notice sample">Sandbox only. No live keys are accepted and nothing here activates live payments. Times in UTC.</p>
-        {!mfa && (
+        {mfa ? (
+          <p className="notice ok" role="status">Two-step verification: verified for this session.</p>
+        ) : (
           <section className="card stack">
             <h2>Two-step verification required for changes</h2>
             <p>You can read this page now. Storing credentials, testing, enabling, disabling, pricing and changing the default all require a verified authenticator code in this session.</p>
@@ -83,16 +85,17 @@ export default async function PlatformPage() {
         {o.connections.map((c) => (
           <section key={c.id} className="card stack" aria-labelledby={`c-${c.id}`}>
             <h2 id={`c-${c.id}`}>{c.label} <span className="badge">{c.status}</span>{c.accepting_new && <span className="badge open">accepting new</span>}</h2>
-            <p className="small">API key: {c.credential.configured ? `version ${c.credential.version}, fingerprint ${c.credential.fingerprint}` : "not stored"}
-              {c.credential.pending && ` · pending ${c.credential.pending_fingerprint} (run a test to activate)`}
+            <p className="small">API key: {c.credential.configured ? `Stored and verified · version ${c.credential.version}, fingerprint ${c.credential.fingerprint}`
+              : c.credential.pending ? `Stored — awaiting verification · fingerprint ${c.credential.pending_fingerprint}` : "Not added"}
+              {c.credential.configured && c.credential.pending && ` · replacement ${c.credential.pending_fingerprint} stored — awaiting verification`}
               {c.credential.previous_retire_after && ` · previous key retained until ${formatDateTime(c.credential.previous_retire_after, tz)}`}.
-              Webhook secret: {c.webhook_secret.configured ? `version ${c.webhook_secret.version}, fingerprint ${c.webhook_secret.fingerprint}` : "not stored"}
+              Webhook secret: {c.webhook_secret.configured ? `Stored · version ${c.webhook_secret.version}, fingerprint ${c.webhook_secret.fingerprint}` : "Not added"}
               {c.webhook_secret.previous_valid_until && ` · previous secret valid until ${formatDateTime(c.webhook_secret.previous_valid_until, tz)}`}.
               NGN monthly card billing: {c.ngn_recurring_verified ? "verified" : "not verified"}. Pinned subscriptions {c.pinned_subscriptions}, pending checkouts {c.pending_checkouts}.</p>
             <div className="grid">
-              <SecretForm connectionId={c.id} version={c.version} kind="api_key"
+              <SecretForm connectionId={c.id} version={c.version} kind="api_key" stored={c.credential.configured || c.credential.pending}
                 nextRotationAfter={c.credential.previous_retire_after && new Date(c.credential.previous_retire_after) > new Date() ? formatDateTime(c.credential.previous_retire_after, tz) : null} />
-              <SecretForm connectionId={c.id} version={c.version} kind="webhook_secret"
+              <SecretForm connectionId={c.id} version={c.version} kind="webhook_secret" stored={c.webhook_secret.configured}
                 nextRotationAfter={c.webhook_secret.previous_valid_until && new Date(c.webhook_secret.previous_valid_until) > new Date() ? formatDateTime(c.webhook_secret.previous_valid_until, tz) : null} />
             </div>
             <p className="small muted">Webhook endpoint to register in the Bachs developer portal: <code className="mono">/functions/v1/bachs-webhook?connection={c.id}</code> on the Supabase project.</p>
