@@ -51,12 +51,27 @@ function absorb(deps: WorkerDeps, fn: Absorb, connection: string, event: string 
     ["timestamptz", deps.now().toISOString()]]);
 }
 
+/** Pre-subscription charge (Bachs sandbox, 2026-10-12): a declined first attempt whose full GET is an
+ *  open purchase with no subscription and no invoice. Exact five-field match only; it routes, nothing more. */
+export function isPreSubscriptionAttempt(p: PaymentFacts): boolean {
+  return p.status === "open" && p.billing_reason === "purchase" && p.subscription_id === null && p.invoice === null && !!p.checkout_id;
+}
+
 /** Full payment truth: the payment, its subscription, and the checkout for a first payment. Refunded
  *  statuses go to absorb_refund even when the payment was verified before (missed notifications). */
 export async function absorbPaymentById(deps: WorkerDeps, client: BachsClient, connection: string, paymentId: string,
   event: string | null, token: string | null): Promise<string> {
   const payment: PaymentFacts = need(await client.getPayment(paymentId), "payment");
   if (REFUNDED.has(payment.status)) return absorb(deps, "billing.absorb_refund", connection, event, token, { payment });
+  if (isPreSubscriptionAttempt(payment)) {
+    // A checkout observation, not a payment absorption: the payment's checkout_id (from the full GET,
+    // never the webhook) is re-read in full and only that checkout is absorbed. No payment rows, no
+    // grant, no grace. A failed, malformed or mismatched read throws for the normal retry.
+    const checkout = need(await client.getCheckout(payment.checkout_id!), "checkout");
+    if (checkout.checkout_id !== payment.checkout_id) throw new Retryable("provider_checkout_id_mismatch");
+    const out = await absorb(deps, "billing.absorb_checkout", connection, event, token, { checkout });
+    return out.startsWith("review:") ? out : `pre_subscription:${out}`;
+  }
   const subscription = payment.subscription_id ? need(await client.getSubscription(payment.subscription_id), "subscription") : null;
   let checkout: CheckoutFacts | null = null;
   if (payment.billing_reason === "subscription_create" && payment.checkout_id) checkout = need(await client.getCheckout(payment.checkout_id), "checkout");

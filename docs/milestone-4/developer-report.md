@@ -2,6 +2,54 @@
 
 Model: Claude Opus 5.5 (`claude-opus-5-5`), local sessions (11 and 12 October) on `feat/saas-milestone-4` from 92cca46. Nothing was committed, pushed, deployed or applied to any cloud database. No environment file, credential, `.vercel` file or customer data was read. No provider call was made: every Bachs interaction in tests uses a mock transport.
 
+## Pre-subscription charge routing (12 October, branch `checkout-repair`, sanitized checkout)
+
+Scope: worker-only compatibility after `fable-pre-subscription-review.md`. No migration, schema, grant, parser, renewal or grace change. Earlier migrations stay sealed. The open-status and contact-correction work is preserved exactly.
+
+**Read-only fact reported by Sol (sanitized; observed by Sol, not by the developer):** after a declined test card, the full payment GET returned `status: open`, `billing_reason: purchase`, `subscription_id: null`, `invoice: null`, and a `checkout_id` matching an existing SAVOUR intent. The unchanged SQL safely queued `review:payment_not_subscription` and granted nothing.
+
+**Worker (`supabase/functions/_shared/worker-core.ts`).** This is the only production file changed. `absorbPaymentById` gains one branch, placed after the refunded check and before the existing path:
+- The predicate `isPreSubscriptionAttempt` is exact: status `open`, billing_reason `purchase`, subscription_id null, invoice null, and checkout_id present. Any other value of any field falls through to the existing `absorb_payment` path unchanged.
+- On a match, the worker does a full `GET /v1/checkout-sessions/{payment.checkout_id}`. The id comes from the payment GET, never from webhook hints. It then calls the existing `billing.absorb_checkout` with the event and claim token, passing `{ checkout }` only. No `absorb_payment` or `lock_payment` call is made, so the branch writes no payment rows, facts hash, paid period, subscription, failure row or grace.
+- Outcomes: `review:*` outcomes are returned verbatim. Every other outcome is prefixed `pre_subscription:` (for example `pre_subscription:checkout_unchanged`) as the routing breadcrumb in `webhook_inbox.outcome`.
+- Fail closed: the checkout GET goes through the existing `need()`. A 4xx response fails as `provider_refused_checkout_<status>`. A 5xx response, a timeout or a 429 fails as `provider_*`. A malformed body, a null body or an unknown or case-drifted checkout status fails as `dto_invalid`, because `parseCheckout` and its allow-list are unchanged. A checkout GET whose `checkout_id` differs from the one requested fails as `provider_checkout_id_mismatch`. In every case the event fails through the normal `fail_event` retry and nothing is absorbed.
+- **Deviation from the review:** Fable suggested falling back to the existing review path when the checkout GET returns null or an unknown status. Following the task instruction, the branch fails closed and retries instead. It never invents checkout facts.
+- `parseCheckout`, `parsePayment`, discovery (`absorbDiscovered`) and the denied, non-subscription and completed handling in SQL are unchanged.
+
+**Tests (all local; mock Bachs transport, synthetic fixtures shaped like the sanitized observation, PGlite):**
+- New `tests/unit/m4-pre-subscription.test.ts` (35 tests; fake scoped DB that records calls):
+  - An exact match reads only the payment and its checkout. It calls `absorb_checkout` alone with (connection, event, token) and facts with exactly one key, `checkout`.
+  - Each of the four non-review checkout outcomes is prefixed. `review:unknown_checkout`, `review:checkout_mismatch` and `review:checkout_pointer_conflict` pass through verbatim.
+  - Each field is toggled alone and falls through to `absorb_payment`: 9 other statuses, 4 other billing_reasons including null, subscription present, invoice present, and checkout_id null or absent. Each case reads a checkout only where the existing `subscription_create` rule says so.
+  - `failed` purchase without a subscription → `absorb_payment` with checkout null, as before.
+  - Refund precedence: `refunded`, `auto_refunded` and `partially_refunded` with the otherwise matching shape → `absorb_refund`, and the checkout is never read.
+  - Through `processEvents`, the event is done with the prefixed outcome, and the envelope's (deliberately wrong) `checkout_id` hint is never requested.
+  - Checkout GET 404, 503, timeout, 429, malformed, null, unknown status, `OPEN`, or another checkout id → `fail_event` with the matching code, and nothing absorbed.
+  - `stale_claim` from SQL → neither completed nor recorded as failed.
+- New `tests/sql/m4-pre-subscription.test.ts` (12 tests; real signed intake, `processEvents` and SQL):
+  - Intent `open`: the attempt → `pre_subscription:checkout_unchanged`. Row footprint is identical (paid_periods, subscriptions, payment_failures, tombstones, review_queue, intents, billing version). Trial access is unchanged. The webhook hint is never fetched.
+  - Repeat: two more events, including `invoice.payment_failed`, for the same payment → the same outcome, an identical footprint, and nothing to re-claim. A second attempt payment on the same checkout is routed the same way.
+  - Fencing: `absorbPaymentById` with a finished event or an unclaimed event and a forged token → `stale_claim`, and nothing is written.
+  - Later success on the same checkout (completed checkout, `subscription_create` payment with a subscription) → `granted`, access active, intent paid. A late attempt observation afterwards changes nothing.
+  - Intent `requesting` → `pre_subscription:checkout_open` and intent `open`.
+  - Checkout GET missing, unknown status, or another id → event failed with `provider_refused_checkout_404`, `dto_invalid` or `provider_checkout_id_mismatch`, and the footprint is unchanged.
+  - A payment naming an unknown checkout → `review:unknown_checkout`.
+  - `failed` purchase and null-reason open charge without a subscription → still `review:payment_not_subscription`.
+  - Tampered checkout amount → `review:checkout_mismatch`, and the intent goes to `review`. A later attempt → `pre_subscription:checkout_unchanged`, and the intent stays in review.
+  - Attempt and `checkout.completed` in either order (two fresh databases) → both `pre_subscription:checkout_completed` and `completed_unpaid`, trialing, with identical footprints and no period, subscription or review.
+- Mutation check (run locally, then reverted): with the branch disabled, 25 of the 47 new tests fail. The pure fall-through and refund tests pass, as they should.
+
+**Actual local results:** `npm run typecheck` clean; `npm run lint` clean. A focused run of 13 files (both new files, `m4-observed-open-payment`, `m4-worker`, `m4-edge-flows`, `m4-billing`, `m4-checkout-preparation`, `m4-contact-correction`, `sol-billing-readonly`, `m4-dto`, `m4-client`, `m4-cron`, `repo-hygiene`): 115 passed, 2 failed. The 2 failures are the known `repo-hygiene.test.ts` sanitized-checkout failures (missing `.env.example`, git ignore state), unrelated and untouched. The full suite was not re-run: this change has no schema change and the focused run raised no other failure.
+
+**Changed files (this task only):** `supabase/functions/_shared/worker-core.ts`, new `tests/unit/m4-pre-subscription.test.ts`, new `tests/sql/m4-pre-subscription.test.ts`, and this section.
+
+**Not verified / limitations:**
+- No provider call was made by the developer. Sol will run the real sandbox decline → success acceptance separately. That run must also confirm that the later success emits a payment event (or checkout completion) whose full GET is `subscription_create` with a subscription, since the grant depends on it.
+- The breadcrumb exists only for non-review outcomes. A review outcome from this branch (`unknown_checkout`, `checkout_mismatch`, `checkout_pointer_conflict`) looks the same as one from a checkout event.
+- `unknown_checkout` and `checkout_pointer_conflict` are queued before the fence, as on the existing checkout path. That ordering is unchanged.
+- Discovery (`absorbDiscovered`) does not use the branch; only the webhook and reconcile paths route through `absorbPaymentById`. A discovered payment of this shape behaves as before. With no SAVOUR reference it is `not_savour`. With one, it reaches `absorb_payment` → `review:payment_not_subscription`. Discovery of this shape is not covered by the new tests.
+- A checkout GET that keeps failing (for example a persistent `dto_invalid`) retries on the existing schedule without parking, which is the existing behaviour for any provider drift.
+
 ## Observed payment status `open` (12 October, branch `checkout-repair`, sanitized checkout)
 
 Scope: the narrow compatibility fix recommended in `fable-open-payment-review.md`. Nothing else changed: no `apply_subscription_facts` call was added, grace semantics are unchanged, and the contact-correction work is preserved exactly.
@@ -576,3 +624,16 @@ A separate successful sandbox payment confirmed automatically in the hosted retu
 The first simulated refund failed and did not revoke paid access (safety passed). A fresh full-refund simulation was refused with 403 until the owner approved and saved Write Refunds on the existing sandbox key; all nine earlier scopes were preserved. The request then returned 201 processing. Its refund.created event was processed safely without revocation while the full payment GET still said succeeded. Successful refund completion/revocation is pending; no success is claimed from the request or event alone. No real money moved.
 
 Remaining: deploy/repoint only a protected Ready Preview, verify contact correction against Bachs, post-repair declined-event handling, real two-connection fencing, completed refund, renewal/failure/dispute cases and NGN account-specific capability. Milestone 4 is not complete.
+
+
+## Sol hosted acceptance follow-up
+
+Protected Ready Preview dpl_2uAWb9MQB9wN5ttZf3jx98AmBJ9f (commit d54b22e) is on the stable development alias; anonymous access still redirects to Vercel authentication. Both applied migration names and filenames match hosted history. All 25 approved report snapshots passed.
+
+Actual contact acceptance: Bachs rejected the synthetic test email with HTTP 400 VALIDATION_ERROR. The UI displayed Correct billing email, correction succeeded, the old intent became abandoned, and request generation became 1. A new checkout bound a provider customer with the corrected approved sandbox alias. Exact provider GET confirmed its ID, email, workspace and connection metadata. The corrected 109-character request key was accepted. Customer search did not reliably find this new plus-address record, so no uniqueness claim is based on search results.
+
+A real two-connection Postgres test on the disposable corrected intent proved connection B waited behind connection A's billing/customer claim lock, then proceeded after A rolled back. Both transactions rolled back; no provider POST occurred and no claim mutation remained. This proves real row-lock waiting, not every possible race or deadlock.
+
+Actual full refund completed: refund.paid was processed as period_revoked. The exact original USD paid period became full-refunded and revoked; access returned to the remaining free trial and trial limits. Earlier refund.failed preserved its separate paid period. No real money moved.
+
+After the open-status repair, the old declined event completed with review:payment_not_subscription, exposing the actual pre-subscription shape (open purchase, null subscription and invoice). The worker-only follow-up routes precisely this shape through the verified checkout path, never through a paid grant. New hosted decline-to-success acceptance is pending; the earlier review is retained.
