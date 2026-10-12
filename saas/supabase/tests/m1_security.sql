@@ -69,6 +69,11 @@ select t.err($$select count(*) from public.workspaces$$, 'permission denied%', '
 select t.err($$select public.get_dashboard(gen_random_uuid())$$, 'permission denied%', 'anon cannot call RPCs');
 reset role;
 
+-- M4 fixture: uncapped trial. This pre-M4 script intentionally exercises more than the SAVOUR trial
+-- limits, so the database owner lifts them for its own disposable workspace inside this rolled-back
+-- transaction (billing.fixture_uncap_trial: owner-only, audited, no runtime path). Assertion count unchanged.
+set local savour.fixture_mode = 'disposable'; select billing.fixture_uncap_trial(t.id('wsA'));
+
 -- ---------------------------------------------------------------- setup (A and B use identical labels)
 select t.as(1);
 select t.put('L1', public.upsert_location(t.id('wsA'), null, 'Main Site', false)::text);

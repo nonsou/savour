@@ -94,6 +94,10 @@ describe("Sol: repeat evidence links respect live location scope", () => {
         await f.db.query("select public.approve_session($1,(select data_version from public.sessions where id=$1))", [session]);
       };
       await approve(f.session);
+      // M4 fixture: a second location exceeds the trial limit; the database owner lifts it for this
+      // disposable workspace only (billing.fixture_uncap_trial, owner-only and audited).
+      await f.db.exec(`reset role; select set_config('savour.fixture_mode', 'disposable', false);
+        select billing.fixture_uncap_trial('${f.ws}'); set role authenticated;`);
       const location = (await f.db.query<{ id: string }>("select public.upsert_location($1,null,'Viewer location',false) as id", [f.ws])).rows[0].id;
       const current = (await f.db.query<{ id: string }>("select public.create_session($1,$2,$3,'Current inspection',(now() at time zone 'Africa/Lagos')::date,$4::uuid[],$5::uuid[],$5::uuid[],24,'09:00'::time) as id",
         [f.ws, location, f.tv, [f.subject], [OWNER]])).rows[0].id;

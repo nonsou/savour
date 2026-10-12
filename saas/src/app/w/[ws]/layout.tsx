@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { SignOut } from "@/components/topbar";
 import { isManager, requireWorkspace, ROLE_LABELS } from "@/lib/auth";
+import { accessBanner } from "@/lib/billing";
+import { formatDateTime } from "@/lib/report";
 
 export default async function WorkspaceLayout({ children, params }: {
   children: React.ReactNode; params: Promise<{ ws: string }>;
@@ -17,7 +19,10 @@ export default async function WorkspaceLayout({ children, params }: {
   if (ctx.role !== "assessor" && ctx.role !== "guest") links.push([`${base}/analytics`, "Analytics"]);
   if (ctx.role !== "guest" && ctx.role !== "viewer") links.push([`${base}/inbox`, "Inbox"]);
   if (isManager(ctx.role)) links.push([`${base}/setup`, "Locations & subjects"], [`${base}/templates`, "Templates"], [`${base}/team`, "Team"]);
+  if (ctx.role === "owner") links.push([`${base}/billing`, "Billing"]);
   if (ctx.role !== "guest") links.push([`${base}/security`, "Security"]);
+  // Milestone 4: one banner from the context already loaded for this page (no extra request).
+  const banner = accessBanner(ctx.access, ctx.role, (iso) => formatDateTime(iso, ctx.workspace.timezone));
   return (
     <>
       <header className="topbar">
@@ -36,7 +41,14 @@ export default async function WorkspaceLayout({ children, params }: {
           </nav>
         </div>
       </header>
-      <main className="container stack">{children}</main>
+      <main className="container stack">
+        {banner && (
+          <p className={`notice ${banner.tone === "info" ? "" : banner.tone}`} role={banner.tone === "info" ? "status" : "alert"}>
+            {banner.text}{banner.billingLink && <> <Link href={`${base}/billing`}>Billing</Link></>}
+          </p>
+        )}
+        {children}
+      </main>
     </>
   );
 }

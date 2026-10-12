@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
+import type { AccessSummary } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
 
 export type Role = "owner" | "admin" | "reviewer" | "assessor" | "viewer" | "guest";
@@ -12,6 +13,8 @@ export interface WorkspaceContext {
   guest_session_id: string | null;
   location_ids: string[];
   aal: string;
+  /** Milestone 4: role-aware billing summary (null for guests). */
+  access: AccessSummary | null;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

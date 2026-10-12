@@ -1,0 +1,17 @@
+# Sol independent verification — 12 October 2026
+
+Status: development implementation and database verification completed; external sandbox and founder demonstration remain pending. Actual Opus 5.5 implementation and Fable 5.1 architecture review were used, excluding credentials and real customer data.
+
+- Independent final local suite: 310 passed, one optional PDF fixture skipped. Earlier checkpoints were 292 and 302. Independent platform counterexamples all failed before repair and now pass unchanged.
+- All seven Edge entrypoints passed Deno 2.9.6 type-check with the pinned official packages resolved. Opus also completed final lint/typecheck and isolated Next build; Sol final lint/typecheck completed separately.
+- Frozen worker-repair draft (SHA-256 2307fee44fb583d147ee81a55e0bdb888bd02ad815135ad512ace3d50ff53e11): 257 real Postgres/Vault assertions passed in an explicit rollback-only preflight. This evidence did not include the later admin fixes.
+- Final SQL SHA-256: 60d7161ee9a63110aa72f8e7815e4cbfb867ff00e76f86910cfcc3d63e5980e0. Applied only to savour-dev ilhutasrxnbtssswmgam as history version 20261012090945, name m4_billing. Local filename aligned to that exact history version without changing SQL content.
+- Applied final migration: 263 real Postgres/Vault assertions passed (257 base plus 6 independent rotation/stale-account/revoked-admin checks). Every disposable fixture rolled back. Provider connections, paid periods and platform admins were zero after tests.
+- All 25 existing approved snapshot body/hash/formula pins verified before and after the database work. The nine earlier migration seals and root Firebase MVP files remain unchanged.
+- Backfill: 3 development workspaces, 19 consumed assessments and 1 outstanding reservation. No provider connection or price activated; no real charge occurred.
+- Founder QA identity 6496c972-df76-4e5a-985a-057170b20e32 enrolled afterwards as a sandbox platform administrator, after matching its confirmed founder email. Workspace roles alone still confer no platform access; sensitive writes require aal2.
+- Security advisor: no new WARN/ERROR in billing/schema permissions. Deliberate deny-all RLS/no-policy INFO on private billing/platform tables; existing leaked-password-protection WARN remains.
+
+The first large preflight request failed with connector request-state expiry. A proposed exception-based rollback was rejected by automatic approval review; the explicit BEGIN/ROLLBACK alternative was accepted and verified. PostgreSQL required owner-only temporary SET ROLE grants inside the rollback test transaction. A private source-staging table contaminated the test's secret-shaped-constant scan, so it was removed inside the rollback transaction before the scan. It was subsequently cleaned up permanently and confirmed absent. No workaround weakened application privileges.
+
+Remaining: scoped runtime credential setup (Supabase CLI currently signed out; human sign-in requested), Edge deployment and real authorization smoke tests, cron evidence, two-connection contention, protected Preview/mobile browser verification, actual Bachs sandbox lifecycle including account-specific NGN recurring evidence, and founder demo. Bachs adapter is implemented but externally unverified; Paystack and Stripe remain pending adapters. No main merge, Production placeholder change, Firebase MVP change or extra spending.

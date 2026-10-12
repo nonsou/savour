@@ -98,6 +98,56 @@ const MESSAGES: Record<string, string> = {
   invalid_mode: "Choose approved or provisional data.",
   invalid_filter: "One of the filters is not valid",
   invalid_purpose: "That export type is not supported.",
+  // Milestone 4: billing, limits and platform administration
+  read_only: "This business is read-only: the trial or paid period has ended. Existing records and accepted work stay available; new work needs an active subscription.",
+  workspace_suspended: "This business is suspended. New work is paused.",
+  quota_exceeded: "Plan limit reached. Archive something or upgrade the subscription before adding more",
+  assessment_not_reserved: "This assessment was not part of the accepted work for this session. Ask an owner or admin to assign it while the business is active.",
+  billing_not_initialized: "Billing is not set up for this business yet. Reload, then contact SAVOUR support if this continues.",
+  invalid_capacity_request: "The request could not be checked against the plan limits. Reload and try again.",
+  consent_required: "Tick the box to confirm Bachs may use this address for receipts and payment recovery.",
+  billing_email_in_use: "That billing email is already used for another SAVOUR business. Each business needs its own billing address.",
+  billing_contact_locked: "The billing contact is linked to the payment provider and cannot be changed here. Use Manage billing.",
+  billing_contact_required: "Nominate a billing email for this business first.",
+  terms_changed: "The billing terms changed. Reload the page and review them again.",
+  price_changed: "The price changed since you reviewed it. Reload the page and review the new price.",
+  price_not_configured: "No price is configured for this currency yet.",
+  recurring_not_verified: "Monthly billing in this currency has not been verified for the payment account yet.",
+  currency_pinned: "This business is billed in its original currency; switching currency is not offered.",
+  currency_unavailable: "That currency is not offered.",
+  provider_not_connected: "No payment provider is connected yet, so nothing can be paid.",
+  provider_unavailable: "The payment provider is not accepting new subscriptions right now. Try again later.",
+  checkout_in_progress: "A checkout is already in progress for this business. Finish it, or wait until it is confirmed or expires.",
+  subscription_exists: "This business already has a subscription.",
+  no_active_subscription: "There is no active subscription to cancel.",
+  billing_portal_unavailable: "Billing management becomes available after the first checkout.",
+  billing_portal_refused: "Billing management is unavailable for this business until SAVOUR support reviews the payment account. Nothing was changed.",
+  billing_customer_review: "This billing email needs a review by SAVOUR support before checkout can continue. Nothing was charged.",
+  checkout_refused: "Bachs refused to start the checkout. Nothing was charged. Try again later.",
+  checkout_intent_stale: "This checkout attempt expired before it started. Start again.",
+  provider_response_invalid: "The payment provider returned something unexpected. Nothing was granted or charged; SAVOUR will review it.",
+  // Platform administration (founder only)
+  mfa_required: "Two-step verification is required for this change. Verify with your authenticator, then try again.",
+  provider_not_supported: "That provider is not supported.",
+  provider_adapter_pending: "That provider is listed but its integration has not been built and tested yet",
+  invalid_credential_format: "That value is not a valid sandbox credential for this provider. Live keys are never accepted.",
+  connection_incomplete: "Store an API key that has passed a test, a webhook secret and the expected account ID before enabling.",
+  test_required: "Run a connection test (within the last day) before enabling.",
+  connection_not_enabled: "Only an enabled connection can be the default.",
+  connection_in_use: "Subscriptions or checkouts still use this connection, so its credential cannot be deleted.",
+  disable_first: "Disable the connection before changing its account ID.",
+  invalid_organization: "Enter the Bachs account ID exactly as shown in the developer portal.",
+  organization_required: "Set the expected Bachs account ID first.",
+  credential_unavailable: "Store an API key first.",
+  invalid_product: "Enter the Bachs product ID exactly as shown in the dashboard.",
+  invalid_amount: "Enter the amount as a plain decimal at currency precision, for example 29.00.",
+  rotation_overlap_active: "Not stored. The previous credential is still kept so in-flight retries and webhook resends keep working; another rotation of this kind is possible after",
+  credential_changed: "This test was started with a different credential. Run a new connection test.",
+  organization_changed: "The expected account changed after this test started. Run a new connection test.",
+  prices_changed: "Prices changed after this test started. Run a new connection test.",
+  test_expired: "This connection test took longer than ten minutes and expired. Run a new connection test.",
+  admin_revoked: "Your platform administrator access was removed, so this test could not complete.",
+  test_not_running: "That connection test is no longer running. Run a new connection test.",
 };
 
 export interface DbError { message?: string; details?: string | null; code?: string }
@@ -109,7 +159,7 @@ export function friendlyError(error: DbError | null | undefined): string {
   if (!base) return "The request failed. Nothing was saved. Please try again.";
   return error.details && ["approval_blocked", "invalid_criteria", "not_found", "open_blocked", "duplicate_name",
     "duplicate_external_id", "import_invalid", "invalid_import", "invitation_scope_conflict", "invalid_settings", "invalid_due_date",
-    "invalid_transition", "own_verification_forbidden", "invalid_filter"].includes(code)
+    "invalid_transition", "own_verification_forbidden", "invalid_filter", "quota_exceeded", "provider_adapter_pending", "rotation_overlap_active"].includes(code)
     ? `${base}: ${error.details}`
     : base;
 }

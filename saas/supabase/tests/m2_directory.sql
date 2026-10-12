@@ -63,6 +63,10 @@ select t.u(n), 'm2-dir-fixture-' || n || '@savour.test', now() from unnest(array
 -- ---------------------------------------------------------------- tenants with identical labels
 select t.as(1);
 select t.put('wsA', public.create_workspace('Same Label Foods', 'Nigeria', 'Africa/Lagos', 'Owner A')::text);
+-- M4 fixture: uncapped trial. This pre-M4 script intentionally exercises more than the SAVOUR trial
+-- limits, so the database owner lifts them for its own disposable workspace inside this rolled-back
+-- transaction (billing.fixture_uncap_trial: owner-only, audited, no runtime path). Assertion count unchanged.
+reset role; set local savour.fixture_mode = 'disposable'; select billing.fixture_uncap_trial(t.id('wsA')); select t.as(1);
 select t.put('L1', public.upsert_location(t.id('wsA'), null, 'Main Site', false)::text);
 select t.put('L2', public.upsert_location(t.id('wsA'), null, 'Annex', false)::text);
 select t.put('LX', public.upsert_location(t.id('wsA'), null, 'Old Yard', false)::text);

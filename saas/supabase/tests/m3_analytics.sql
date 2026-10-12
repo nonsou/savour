@@ -72,6 +72,10 @@ select t.u(n), 'm3-ana-fixture-' || n || '@savour.test', now() from unnest(array
 
 select t.as(1);
 select t.put('ws', public.create_workspace('Analytics QA', 'Nigeria', 'Africa/Lagos', 'Owner')::text);
+-- M4 fixture: uncapped trial. This pre-M4 script intentionally exercises more than the SAVOUR trial
+-- limits, so the database owner lifts them for its own disposable workspace inside this rolled-back
+-- transaction (billing.fixture_uncap_trial: owner-only, audited, no runtime path). Assertion count unchanged.
+reset role; set local savour.fixture_mode = 'disposable'; select billing.fixture_uncap_trial(t.id('ws')); select t.as(1);
 select t.put('L1', public.upsert_location(t.id('ws'), null, 'Main', false)::text);
 select t.put('L2', public.upsert_location(t.id('ws'), null, 'Annex', false)::text);
 select t.put('S1', public.upsert_subject(t.id('ws'), null, 'Alpha Stall', 'vendor', false)::text);

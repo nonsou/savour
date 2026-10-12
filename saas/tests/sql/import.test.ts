@@ -19,6 +19,10 @@ async function db() {
   await d.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${OWNER}', 'import-fixture@savour.test', now());
     select set_config('request.jwt.claims', '{"sub":"${OWNER}","role":"authenticated"}', false); set role authenticated;`);
   const ws = (await d.query<{ id: string }>("select public.create_workspace('Import QA', 'Nigeria', 'Africa/Lagos', 'Owner') as id")).rows[0].id;
+  // M4 fixture: two locations exceed the trial limit; the database owner lifts it for this disposable
+  // workspace only (billing.fixture_uncap_trial, owner-only and audited).
+  await d.exec(`reset role; select set_config('savour.fixture_mode', 'disposable', false);
+    select billing.fixture_uncap_trial('${ws}'); set role authenticated;`);
   await d.query("select public.upsert_location($1, null, 'Main Site', false)", [ws]);
   await d.query("select public.upsert_location($1, null, 'Annex', false)", [ws]);
   await d.query("select public.save_category($1, null, 'Grills', false, null)", [ws]);

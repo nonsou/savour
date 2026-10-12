@@ -413,3 +413,34 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Milestone 4 billing functions. Signature (webhook) and bearer-token (worker) authenticated
+# functions skip gateway JWT checks; every Owner/admin function requires a Supabase JWT and
+# validates it again with auth.getUser() before any database or provider call.
+[functions.bachs-webhook]
+verify_jwt = false
+import_map = "./functions/deno.json"
+
+[functions.bachs-worker]
+verify_jwt = false
+import_map = "./functions/deno.json"
+
+[functions.bachs-checkout]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.bachs-portal]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.bachs-cancel]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.platform-credentials]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.platform-provider-test]
+verify_jwt = true
+import_map = "./functions/deno.json"
