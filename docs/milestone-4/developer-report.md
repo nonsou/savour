@@ -2,6 +2,119 @@
 
 Model: Claude Opus 5.5 (`claude-opus-5-5`), local sessions (11 and 12 October) on `feat/saas-milestone-4` from 92cca46. Nothing was committed, pushed, deployed or applied to any cloud database. No environment file, credential, `.vercel` file or customer data was read. No provider call was made: every Bachs interaction in tests uses a mock transport.
 
+## Checkout preparation recovery (12 October, branch `checkout-repair`, sanitized checkout)
+
+Witnessed blocker: in the real Bachs sandbox, `begin_checkout` persisted the intent (status `created`, `request_attempts` 0, no `provider_checkout_id`). The page then showed "Preparing", with no error and no retry, and no `checkout.failed` log appeared.
+
+**What is and is not known (corrected after Sol's review):**
+- **Confirmed:** Sol saw `GET /v1/customers` return 200 with no items.
+- **Not observed:** a refusal of `POST /v1/customers`. No `POST /v1/customers` response from Bachs has been observed at all. Sol's diagnostic POST never reached the provider: it first hit a database connection timeout, then the stale-intent guard.
+- **Unknown:** what stopped the original attempt. The "Preparing" symptom fits any early return before the checkout request that leaves no record. That includes:
+  - a refused or uncertain customer creation;
+  - a refused or unavailable lookup;
+  - a customer review outcome;
+  - a thrown error whose `checkout.failed` log line was not captured or not looked at.
+
+  The repair below covers all of these generically. Nothing here assumes which one happened. The synthetic 422 refusal in the tests is a mock, not an observation.
+
+**What the code did (confirmed by reading it, not by a provider response):**
+- `ensureCustomer` returned early on a refused creation (`provider_refused`) or a refused/unavailable lookup.
+- Those early returns had no log line and no database record. `provider_refused` also had no message, so the Owner saw the generic "request failed" text.
+- That error lived in the purchase form's action state. Revalidation then rendered the `created` intent, which hides the purchase form, so the error disappeared with it.
+- An uncertain creation returned `processing`, which sent the Owner to the return page. That page polled a `created` intent that nothing would ever move.
+
+**Repairs:**
+- **New forward migration `20261012134720_m4_checkout_preparation.sql`** (additive; all earlier migrations, including Sol's default-guard migration, are unchanged):
+  - New columns `checkout_intents.prepare_error_detail`, `checkout_intents.prepare_attempt`, and `provider_customers.create_attempts`, `create_last_attempt_at`, `create_lease_until`, `create_uncertain_since`, `create_uncertain_retries`, `create_claim_token`.
+  - New functions:
+    - `billing.gateway_customer_claim`: lock order billing → intent → customer, live Owner check, intent must be fresh and `created`.
+    - `billing.gateway_record_preparation`
+    - `billing.preparation_retryable`
+    - `private.resume_checkout` / `public.resume_checkout`
+  - `private.get_billing` is replaced with the same output plus `pending_checkout.preparation`.
+  - Grants: the two gateway functions to `billing_gateway` only; `resume_checkout` to `authenticated`; nothing to `anon`.
+- **Precise, sanitized reason on the intent.**
+  - When preparation stops, the intent stays `created` and gets `last_error_code`. The codes are `customer_lookup_refused`, `customer_lookup_unavailable`, `customer_create_refused`, `customer_create_uncertain`, `customer_create_in_progress`, `customer_create_unresolved`, `billing_customer_review`, `provider_response_invalid`, `provider_config_invalid`, `preparation_failed`, and the existing database codes.
+  - `prepare_error_detail` holds only the HTTP status plus the provider's already-parsed `error_code` (or `timeout` / `network` / `response_invalid`). A check constraint enforces that format, so response bodies, emails and URLs cannot be stored.
+  - The Edge function logs `checkout.preparation_stopped` with that code and detail only, through `logLine` redaction.
+- **Customer creation cannot be sent twice at once, or outside its idempotency window.**
+  - Every `POST /v1/customers` uses the existing per-workspace/connection `customer_idempotency_key` and first takes a 60-second database claim. A second request during a live claim gets `customer_create_in_progress` and makes no provider call.
+  - These count as uncertain: a claim whose result was never recorded, a timeout, a 5xx/408/409/429, or a 2xx that fails the customer DTO.
+  - Uncertainty is sticky until a customer is bound. After it, a retry searches first and adopts the customer only if its metadata is SAVOUR's for this workspace and connection. Otherwise it repeats the identical request with the same key. That is allowed only within 23 hours of the first uncertain attempt and at most 3 more times; after that the database queues a `customer_creation_unresolved` review and sends nothing further.
+  - Definite refusals are not capped.
+  - **Claim fencing (Sol review repair).** Each claim gets a new `create_claim_token`, which travels through `owner-core` and back into `gateway_record_preparation`.
+    - **Lease.** Under the billing and intent row locks, a refused or uncertain outcome releases the lease only if its token is still the current one. Previously any late outcome cleared the lease by workspace and connection.
+    - **Late outcomes from an expired claim.** They leave the newer claim's lease and token untouched. A late *uncertain* outcome can still mark the customer state uncertain, which only makes it stricter.
+    - **Preparation reason.** Every Owner retry gets a new `prepare_attempt` from `resume_checkout`; the first attempt's is null. A reason is written only when the outcome's attempt matches the intent's current one, otherwise the function returns `superseded`. So A's late outcome cannot overwrite the reason B (or later C) records.
+    - **Late success.** A success from an expired claim is a provider fact, so it still binds. The same idempotency key yields the same customer, and `gateway_bind_customer` returns `bound` for it; a different customer would be refused into review. `gateway_mark_requesting` stays the single atomic gate, so the late flow cannot send a second checkout request (it gets `checkout_intent_stale`). Its fenced preparation record then changes nothing.
+    - **Authorization.** Fresh checks are unchanged: the claim re-checks the live Owner, and `resume_checkout` re-checks role and suspension.
+  - Nothing changed after `gateway_mark_requesting`: the checkout request, its key and the worker's identical retry rules are as before.
+- **Same-intent retry by the consenting Owner.**
+  - `bachs-checkout` accepts `{workspace_id, intent_id}` and calls `resume_checkout`. That function:
+    - re-checks the live Owner role and workspace suspension;
+    - requires the intent to belong to that workspace and to the same Owner;
+    - requires it to be `created`, under 15 minutes old, on the current terms version and with a retryable reason;
+    - clears the old reason and audits `billing.checkout_intent_resumed`.
+  - The gateway then re-checks the pinned connection, price, currency and billing contact exactly as on first use. No new intent, reference, checkout key or customer key is created, and there is still one pending intent per workspace.
+- **UI.**
+  - The billing page renders the stored reason from `get_billing`, so it survives the re-render. It adds a "Try again" form for the same intent and says when a customer request is unconfirmed.
+  - A `created` intent that is stale or not retryable no longer hides the purchase form. The form shows "Your last checkout attempt did not start: …", and fresh consent supersedes the old intent as before.
+  - Preparation errors now stay on the billing page instead of redirecting to the return page. The return page no longer polls a `created` intent.
+  - New messages are in `src/lib/errors.ts`.
+- **Admin default selector.** The uncontrolled `<select>` in `/platform` is keyed by `settings_version`. After a saved default it remounts with the server's latest default, so React's post-action form reset can no longer restore "None". Only the select remounts; the form and its success message stay. `SecretForm` (stored-key refresh) and `MfaPanel` are untouched.
+
+**New tests (mock transport and PGlite only; the status and error codes in them are synthetic):**
+- `tests/sql/m4-checkout-preparation.test.ts` (8), over the real SQL through the scoped gateway role:
+  - Lookup 200/empty then a mock refused creation: the reason and detail are stored and shown, `request_attempts` stays 0, and nothing raw is logged. The retry uses the same intent, the same customer `Idempotency-Key` and `savour-checkout-<intent>`, and still leaves one intent.
+  - **Fencing:**
+    1. A claims and stalls inside a held mock POST, and A's lease expires.
+    2. B retries and takes a new claim with a different token.
+    3. A's late 422 arrives. B's lease and token are unchanged, and the intent's reason is not overwritten.
+    4. C's retry gets `customer_create_in_progress`, with no third POST.
+    5. B completes. There is one customer key and one checkout request, and the intent is `open`.
+  - **Late success:** after B has opened the checkout, A's identical late success binds the same customer idempotently. A gets `checkout_intent_stale`, and there is still one checkout request and no review row.
+  - A live claim blocks a concurrent creation. An expired unrecorded claim counts as uncertain, and a customer it created is adopted with no second POST.
+  - Three uncertain retries go to review with exactly 4 identical POSTs and no fifth. Fresh consent after that still sends none.
+  - A 24-hour-old uncertainty sends nothing.
+  - Lookup 503/401 and an unreadable 2xx are recorded and the lease is released.
+  - Stranger, wrong-workspace and stale retries are refused.
+- `tests/unit/m4-checkout-preparation-ui.test.ts` (7): the billing page server-rendered for refused, preparing, not-retryable and other pending states; detail sanitization; the retry action's request body, validation and redirect allow-list; the admin select remounting with the new server default.
+- **Mutation checks:** each mutation was restored afterwards.
+  - Disabling the claim lease and raising the retry cap failed 2 tests.
+  - Restoring the old unfenced lease release failed the fencing test.
+  - Disabling the attempt fence failed the fencing test.
+
+**Actual local results (this checkout, after the fencing repair):**
+
+| Check | Result |
+| - | - |
+| New tests | 8/8 and 7/7 pass |
+| Existing M4 flow tests (`m4-edge-flows`, `m4-worker`, `m4-billing-ui`) | Pass (part of the full run) |
+| `npm test` | 43 files: 38 passed, 3 failed, 2 skipped. 332 tests: 326 passed, 4 failed, 2 skipped. All four failures are caused by this sanitized checkout and none touch billing. `legacy.test.ts` and `sol-legacy-m3.test.ts` need `docs/milestone-2` and `docs/milestone-3/qa-snapshot-baseline.json`, which are absent. `repo-hygiene.test.ts` needs `.env.example` (absent) and expects git to ignore `node_modules/pkg/index.js`, which it doesn't because `node_modules` is a symlink here. |
+| `npm run typecheck` / `npm run lint` | Clean |
+| Isolated build | **Not run.** Local tool policy blocked the command, so nothing was built and there is no result. Pending: `NEXT_DIST_DIR=.next-checkout-repair NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_TESTONLY npm run build` |
+| `deno check` | **Not run.** Local tool policy blocked the command, so there is no result. Pending: `DENO_DIR=/tmp/savour-m4-deno <deno binary> check --cached-only` on `owner-core.ts`, `db.ts` and `bachs-checkout/index.ts` |
+
+**Findings (not changed here; awaiting a real provider response or a decision):**
+1. **Billing contact locks before any customer is bound.** `set_billing_contact` refuses once a `provider_customers` row exists, and `gateway_checkout_context` creates that row on the first attempt. The page's `locked` flag uses `bound_at`, so the contact form still shows, but saving fails with "linked to the payment provider". If a real customer-creation refusal ever turns out to depend on the email, the Owner cannot change it. The customer idempotency key also embeds the email hash.
+2. **Unknown: does Bachs replay a refusal for the same key?** No refusal has been observed. If Bachs's idempotency layer caches 4xx responses per key, retrying after a definite refusal may repeat it for up to 24 hours even after the cause is fixed. The docs available here don't say.
+3. **A 2xx checkout response that fails the DTO leaves the intent stuck.** After `mark_requesting`, such a response leaves the intent `requesting` with no worker path; only operator release clears it. This depends on the real response shape, so it is left alone.
+4. **Co-owners cannot retry another Owner's checkout.** Only the consenting Owner may retry. A co-owner sees "Try again", gets `forbidden`, and can start fresh only once the intent is stale (15 minutes).
+5. **The admin select fix is verified only by structure.** The test checks the element tree (key and default). The client-side form reset was not exercised in a browser.
+
+**External checks still pending:**
+- Sol applies the new migration and deploys `bachs-checkout`.
+- Repeat the browser flow with a new disposable workspace and a `.test` email:
+  - Whatever stops preparation is now shown with its code (and HTTP status and code when Bachs answered), and the function log has `checkout.preparation_stopped`. That identifies which early return actually happens.
+  - "Try again" reuses the same intent and customer key. Sol confirms this in the sandbox request log.
+- Observe a real `POST /v1/customers` response. None has been observed yet; the diagnostic attempt never reached Bachs. Make any provider-specific repair only after that.
+- Re-check the `/platform` default selector in a browser after saving.
+- Run the claim races on real Postgres with independent connections:
+  - two tabs retrying together;
+  - lease expiry under real latency;
+  - a late outcome from an expired claim (covered locally only through the single PGlite connection).
+- Run the isolated build and `deno check`.
+
 ## Second review repairs (12 October, `sol-second-review.md`)
 
 1. **Missed-renewal discovery without a webhook (bounded, resumable).**
@@ -198,3 +311,7 @@ All three of Sol's tests failed on the earlier draft (Sol's log: `/tmp/savour-m4
    6. Configure the Bachs portal to disallow plan switching.
 6. Create Vault secrets `savour_billing_worker_token` and `savour_billing_worker_url`, then run `supabase/cron/bachs_worker_schedule.sql`. It schedules four jobs: process every minute, housekeeping every 15 minutes, discover hourly, reconcile daily. Proof of scheduling is a `cron.job_run_details` row plus `billing.worker_runs.trigger = 'cron'`.
 7. Record NGN recurring only from a real sandbox recurring test: `select platform.operator_verify_ngn_recurring('<connection-id>', '<evidence reference>');`.
+
+## Sol integration verification — 12 October 2026
+
+The reviewed Opus bundle was integrated into the complete development repository. Full local suite: 331 passed, one optional fixture skipped. Application build passed. The checkout Edge function passed cached Deno type checking with the existing pinned import configuration. The additive checkout preparation migration was applied only to savour-dev; its filename matches hosted migration history. Backend/Preview deployment and actual browser/provider acceptance remain pending. The original POST /v1/customers result is still unobserved; no provider-specific diagnosis is claimed.

@@ -126,6 +126,16 @@ const MESSAGES: Record<string, string> = {
   checkout_refused: "Bachs refused to start the checkout. Nothing was charged. Try again later.",
   checkout_intent_stale: "This checkout attempt expired before it started. Start again.",
   provider_response_invalid: "The payment provider returned something unexpected. Nothing was granted or charged; SAVOUR will review it.",
+  // Checkout preparation (before Bachs is asked for a checkout; nothing can have been charged)
+  customer_lookup_refused: "Bachs refused the billing customer lookup, so checkout did not start. Nothing was charged.",
+  customer_lookup_unavailable: "Bachs could not be reached to look up the billing customer, so checkout did not start. Nothing was charged.",
+  customer_create_refused: "Bachs refused to create the billing customer for this business, so checkout did not start. Nothing was charged.",
+  customer_create_uncertain: "Bachs did not confirm whether the billing customer was created, so checkout did not start. Nothing was charged. Trying again repeats the same request, so a second customer is not created.",
+  customer_create_in_progress: "Another attempt is still contacting Bachs for this business. Wait a minute, then try again. Nothing was charged.",
+  customer_create_unresolved: "The billing customer request could not be confirmed with Bachs in time. SAVOUR support needs to review it before checkout can continue. Nothing was charged.",
+  provider_config_invalid: "The payment provider connection is not configured correctly, so checkout did not start. Nothing was charged.",
+  preparation_failed: "Checkout could not be prepared. Nothing was charged.",
+  checkout_not_retryable: "This checkout attempt cannot be retried. Start a new checkout below.",
   // Platform administration (founder only)
   mfa_required: "Two-step verification is required for this change. Verify with your authenticator, then try again.",
   provider_not_supported: "That provider is not supported.",

@@ -33,7 +33,7 @@ export interface OwnerBilling {
   subscription: { status: string; currency: string; amount: string; cancellation: "none" | "pending" | "confirmed" | "ended";
     current_period_end: string | null; status_observed_at: string } | null;
   pending_checkout: { id: string; status: string; currency: string; amount: string; created_at: string; checkout_url: string | null;
-    checkout_expires_at: string | null } | null;
+    checkout_expires_at: string | null; preparation?: Preparation | null } | null;
   recent_checkouts: { id: string; status: string; currency: string; amount: string; created_at: string }[];
   ledger: { currency: string; amount_minor: number; amount: string; period_start: string; period_end: string; refund_state: string;
     dispute_state: string; review_flag: boolean; revoked: boolean }[];
@@ -41,6 +41,20 @@ export interface OwnerBilling {
   review_required: boolean;
 }
 export type MemberBilling = { view: "member"; access: AccessSummary | null };
+
+/** State of a checkout that has not reached Bachs yet (intent status "created"). */
+export interface Preparation { error_code: string | null; detail: string | null; retry_allowed: boolean; customer_uncertain: boolean }
+
+const DETAIL = /^(?:http_(\d{3})(?::([A-Z_]{2,60}))?|timeout|network|response_invalid)$/;
+
+/** Plain-language reason a checkout stopped before reaching Bachs, with the sanitized provider status. */
+export function preparationText(p: Preparation, message: (code: string) => string): string | null {
+  if (!p.error_code) return null;
+  const m = p.detail ? DETAIL.exec(p.detail) : null;
+  const detail = !m ? "" : m[1] ? ` (Bachs response: HTTP ${m[1]}${m[2] ? `, ${m[2]}` : ""})`
+    : p.detail === "timeout" ? " (no response from Bachs in time)" : p.detail === "network" ? " (network error)" : " (unexpected response)";
+  return `${message(p.error_code)}${detail}`;
+}
 
 export const STATE_LABELS: Record<AccessState, string> = {
   trialing: "Free trial", active: "Active (paid)", cancel_scheduled: "Active, cancellation confirmed", past_due: "Payment failed: grace period",

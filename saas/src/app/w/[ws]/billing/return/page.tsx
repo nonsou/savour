@@ -19,15 +19,18 @@ export default async function BillingReturnPage({ params }: { params: Promise<{ 
   const b = data as OwnerBilling;
   const paid = ["active", "cancel_scheduled"].includes(b.access.state) && !b.pending_checkout;
   const pending = b.pending_checkout;
+  // A created intent never reached Bachs: nothing is processing, and polling would not change it.
+  const notStarted = pending?.status === "created";
   return (
     <section className="card stack">
       <h1>Payment status</h1>
       {paid && <p className="notice ok" role="status">Payment confirmed by Bachs. Paid through {formatDateTime(b.access.paid_through, ctx.workspace.timezone)}.</p>}
-      {!paid && pending && (
+      {!paid && pending && !notStarted && (
         <p className="notice warn" role="status">Payment processing: {CHECKOUT_STATUS_LABELS[pending.status] ?? pending.status}. Access changes only after SAVOUR verifies the payment with Bachs.</p>
       )}
+      {!paid && notStarted && <p className="notice" role="status">Checkout has not reached Bachs yet, so nothing was charged. Go back to billing to see why and try again.</p>}
       {!paid && !pending && <p className="notice">No verified payment yet. If you cancelled or closed the payment page, nothing was charged.</p>}
-      <RefreshPoller active={!paid && !!pending} />
+      <RefreshPoller active={!paid && !!pending && !notStarted} />
       <p><Link href={`/w/${ws}/billing`} className="btn">Back to billing</Link></p>
     </section>
   );

@@ -2,12 +2,12 @@ import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { requireWorkspace } from "@/lib/auth";
 import {
-  CHECKOUT_STATUS_LABELS, formatMinor, formatPrice, KIND_LABELS, KINDS, STATE_LABELS, TERMS_VERSION, UNAVAILABLE_REASONS,
+  CHECKOUT_STATUS_LABELS, formatMinor, formatPrice, KIND_LABELS, KINDS, preparationText, STATE_LABELS, TERMS_VERSION, UNAVAILABLE_REASONS,
   type MemberBilling, type OwnerBilling,
 } from "@/lib/billing";
 import { friendlyError } from "@/lib/errors";
 import { formatDateTime } from "@/lib/report";
-import { cancelSubscription, openPortal, setBillingContact, startCheckout } from "./actions";
+import { cancelSubscription, openPortal, retryCheckout, setBillingContact, startCheckout } from "./actions";
 
 export const metadata = { title: "Billing — SAVOUR" };
 
@@ -36,6 +36,11 @@ export default async function BillingPage({ params }: { params: Promise<{ ws: st
   const hidden = <input type="hidden" name="ws" value={ws} />;
   const available = b.prices.filter((p) => !p.unavailable_reason && p.price_id);
   const sub = b.subscription;
+  const pending = b.pending_checkout;
+  // A checkout that never reached Bachs: the consenting Owner may retry it, or it no longer blocks a new one.
+  const prep = pending?.status === "created" ? pending.preparation ?? null : null;
+  const blocking = pending && !(prep && !prep.retry_allowed) ? pending : null;
+  const prepText = prep && preparationText(prep, (code) => friendlyError({ message: code }));
   return (
     <>
       <h1>Billing</h1>
@@ -68,18 +73,32 @@ export default async function BillingPage({ params }: { params: Promise<{ ws: st
           Guests are not staff seats; archived items and frozen reports do not count; there are no overage charges.</p>
       </section>
 
-      {b.pending_checkout && (
+      {blocking && !prep && (
         <section className="card stack">
           <h2>Checkout in progress</h2>
-          <p>{CHECKOUT_STATUS_LABELS[b.pending_checkout.status] ?? b.pending_checkout.status}: {b.pending_checkout.amount} {b.pending_checkout.currency}, started {when(b.pending_checkout.created_at)}.
+          <p>{CHECKOUT_STATUS_LABELS[blocking.status] ?? blocking.status}: {blocking.amount} {blocking.currency}, started {when(blocking.created_at)}.
             Access changes only after SAVOUR verifies the payment with Bachs.</p>
-          {b.pending_checkout.checkout_url && <p><a className="btn primary" href={b.pending_checkout.checkout_url} rel="noopener noreferrer">Continue to the Bachs payment page</a></p>}
+          {blocking.checkout_url && <p><a className="btn primary" href={blocking.checkout_url} rel="noopener noreferrer">Continue to the Bachs payment page</a></p>}
         </section>
       )}
 
-      {!sub && !b.pending_checkout && (
+      {blocking && prep && (
+        <section className="card stack" aria-labelledby="prep-h">
+          <h2 id="prep-h">{prepText ? "Checkout not started" : "Preparing checkout"}</h2>
+          <p>{blocking.amount} {blocking.currency} per month, consented {when(blocking.created_at)}. Bachs has not been asked for a payment page yet, so nothing was charged.</p>
+          {prepText ? <p className="notice error" role="alert">{prepText}</p> : <p>SAVOUR is setting up the billing customer with Bachs. If this does not change, try again.</p>}
+          {prep.customer_uncertain && <p className="small muted">A billing customer request to Bachs is unconfirmed. Trying again repeats the same request, so no second customer is created.</p>}
+          <ActionForm action={retryCheckout}>
+            {hidden}<input type="hidden" name="intent" value={blocking.id} />
+            <SubmitButton pendingText="Contacting Bachs…">Try again</SubmitButton>
+          </ActionForm>
+        </section>
+      )}
+
+      {!sub && !blocking && (
         <section className="card stack" aria-labelledby="buy-h">
           <h2 id="buy-h">Business plan, monthly</h2>
+          {prepText && <p className="notice warn" role="status">Your last checkout attempt did not start: {prepText} You can start again below.</p>}
           <fieldset>
             <legend>Billing currency</legend>
             {b.prices.map((p) => (

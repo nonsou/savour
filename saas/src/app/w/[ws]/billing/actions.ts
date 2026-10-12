@@ -33,9 +33,22 @@ export async function startCheckout(_: ActionState, f: FormData): Promise<Action
   const ws = s(f, "ws");
   if (!isUuid(ws)) return { error: friendlyError({ message: "not_found" }) };
   if (f.get("consent") !== "on") return { error: "Tick the box to confirm you have read the price, renewal, cancellation and refund terms." };
-  const r = await invoke("bachs-checkout", { workspace_id: ws, currency: s(f, "currency"), price_id: s(f, "price_id"), terms_version: TERMS_VERSION });
+  return checkoutOutcome(ws, await invoke("bachs-checkout", { workspace_id: ws, currency: s(f, "currency"), price_id: s(f, "price_id"),
+    terms_version: TERMS_VERSION }));
+}
+
+// Retries the same pending checkout that was consented to (no new consent, intent or provider customer).
+export async function retryCheckout(_: ActionState, f: FormData): Promise<ActionState> {
+  const ws = s(f, "ws");
+  const intent = s(f, "intent");
+  if (!isUuid(ws) || !isUuid(intent)) return { error: friendlyError({ message: "not_found" }) };
+  return checkoutOutcome(ws, await invoke("bachs-checkout", { workspace_id: ws, intent_id: intent }));
+}
+
+function checkoutOutcome(ws: string, r: Awaited<ReturnType<typeof invoke>>): ActionState {
   if (r.kind === "redirect" && isProviderUrl(r.url)) redirect(r.url);
   if (r.kind === "processing") redirect(`/w/${ws}/billing/return`);
+  // The page re-renders with the reason stored on the pending checkout, so it survives this form unmounting.
   revalidatePath(`/w/${ws}/billing`);
   return { error: message(r.code) };
 }

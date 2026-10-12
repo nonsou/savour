@@ -74,7 +74,10 @@ export default async function PlatformPage() {
           <ActionForm action={setDefault}>
             <input type="hidden" name="version" value={o.settings_version} />
             <div className="field"><label htmlFor="default">Connection</label>
-              <select id="default" name="connection" defaultValue={o.default_connection_id ?? ""}>
+              {/* Keyed by the settings version: React keeps an uncontrolled select's first default and the
+                  post-action form reset restores it, so a saved default would otherwise show as the old one.
+                  Only the select remounts; the form and its success message stay. */}
+              <select key={o.settings_version} id="default" name="connection" defaultValue={o.default_connection_id ?? ""}>
                 <option value="">None</option>
                 {o.connections.filter((c) => c.status === "enabled").map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select></div>

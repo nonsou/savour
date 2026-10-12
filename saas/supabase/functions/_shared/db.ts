@@ -9,7 +9,7 @@ export const ROLE_FUNCTIONS = {
     "billing.worker_connections", "platform.get_credential", "billing.release_event", "billing.discovery_begin",
     "billing.discovery_record_page", "billing.discovery_claim", "billing.discovery_classify", "billing.discovery_finish"],
   billing_gateway: ["billing.gateway_checkout_context", "billing.gateway_bind_customer", "billing.gateway_customer_review",
-    "billing.gateway_mark_requesting", "billing.gateway_record_checkout", "billing.gateway_portal_context", "billing.gateway_portal_refused",
+    "billing.gateway_customer_claim", "billing.gateway_record_preparation", "billing.gateway_mark_requesting", "billing.gateway_record_checkout", "billing.gateway_portal_context", "billing.gateway_portal_refused",
     "billing.gateway_cancel_context", "billing.gateway_apply_subscription", "platform.get_credential", "platform.gateway_test_context",
     "platform.gateway_record_test"],
 } as const;

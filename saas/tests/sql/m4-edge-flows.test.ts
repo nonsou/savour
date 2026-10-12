@@ -136,6 +136,19 @@ describe("M4 Edge flows over the real SQL (mock provider transport)", () => {
   it("keeps the provider registry immutable after the key-format migration", async () => {
     await expect(pg.query("update platform.providers set key_pattern = '.*' where code = 'bachs'")).rejects.toThrow("immutable_record");
   });
+  it("clearing the default increments its version once and refuses stale changes", async () => {
+    const admin2 = userRpc(ADMIN, "aal2");
+    const before = (await pg.query<{ version: number }>("select version from platform.settings where id = true")).rows[0].version;
+    const saved = await admin2("platform_set_default", { p_conn: null, p_expected_version: before });
+    expect(saved.error).toBeNull();
+    expect(saved.data).toBe(before + 1);
+    const rows = (await pg.query<{ id: boolean; version: number; default_connection_id: string | null }>("select id, version, default_connection_id from platform.settings")).rows;
+    expect(rows).toEqual([{ id: true, version: before + 1, default_connection_id: null }]);
+    const stale = await admin2("platform_set_default", { p_conn: null, p_expected_version: before });
+    expect(stale.error?.message).toBe("stale_version");
+    expect((await pg.query<{ version: number }>("select version from platform.settings where id = true")).rows[0].version).toBe(before + 1);
+  });
+
   it("platform admin: identity, aal2, write-only secrets and a read-only connection test that configures the matching price", async () => {
     const admin2 = userRpc(ADMIN, "aal2");
     expect((await userRpc(OWNER, "aal2")("platform_overview", {})).error?.message).toBe("forbidden");
