@@ -30,7 +30,7 @@ const owner = (pending: OwnerBilling["pending_checkout"]): OwnerBilling => ({
   trial_limits: { locations: 1, subjects: 25, staff: 3, assessments: 100 }, terms_version: "savour-m4-sandbox-terms-1", environment: "sandbox",
   prices: [{ currency: "USD", exponent: 2, provider: "Bachs", price_id: WS, version: 1, amount_minor: 2900, amount: "29.00", label: "Sandbox proposal",
     recurring_capability: "documented", environment: "sandbox", unavailable_reason: null }],
-  billing_currency: null, billing_contact: { email: "billing@example.test", consent_at: "2026-10-12T00:00:00Z", locked: false }, customer_bound: false,
+  billing_currency: null, billing_contact: { email: "billing@example.test", consent_at: "2026-10-12T00:00:00Z", state: "editable", locked: false, correctable: false }, customer_bound: false,
   subscription: null, pending_checkout: pending, recent_checkouts: [], ledger: [], totals_by_currency: [], review_required: false,
 });
 const created = (preparation: NonNullable<OwnerBilling["pending_checkout"]>["preparation"]) => ({ id: INTENT, status: "created", currency: "USD",

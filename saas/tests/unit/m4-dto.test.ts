@@ -2,7 +2,8 @@
 // Contract fixtures only: they prove faithful parsing, not that the sandbox behaves this way.
 import { describe, expect, it } from "vitest";
 import {
-  DtoError, extractHints, parseCheckout, parseCreateCheckoutResponse, parseEnvelope, parsePayment, parsePortalSession, parseProduct, parseSubscription,
+  DtoError, extractHints, parseCheckout, parseCreateCheckoutResponse, parseEnvelope, parsePayment, parsePaymentList, parsePortalSession, parseProduct,
+  parseSubscription, PAYMENT_STATUS_DOCUMENTED, PAYMENT_STATUS_OBSERVED,
 } from "../../supabase/functions/_shared/bachs-dto.ts";
 
 // SubscriptionResponse example from the official subscriptions guide.
@@ -64,6 +65,21 @@ describe("Bachs DTO parsing", () => {
       ["path-like id", () => parsePayment({ ...PAYMENT, payment_id: "../../v1/admin" })],
     ];
     for (const [label, f] of bad) expect(f, label).toThrow(DtoError);
+  });
+
+  it("accepts exactly lowercase 'open' as an observed payment status and keeps it in the facts", () => {
+    // Synthetic fixture shaped like the sandbox observation: unpaid first charge, nothing collected.
+    const open = { ...PAYMENT, status: "open", amount_paid: null, amount_remaining: "10.00", invoice: null };
+    expect(PAYMENT_STATUS_DOCUMENTED).not.toContain("open");
+    expect(PAYMENT_STATUS_OBSERVED).toEqual(["open"]);
+    expect(parsePayment(open)).toMatchObject({ status: "open", billing_reason: "subscription_create", amount_paid: null, amount_remaining: "10.00", invoice: null });
+    for (const status of ["OPEN", "Open", "open ", "pending", "authorized", "requires_payment_method", "", null]) {
+      expect(() => parsePayment({ ...open, status }), String(status)).toThrow(DtoError);
+      expect(() => parsePayment({ ...open, status }), String(status)).toThrow("dto_invalid: payment.status");
+    }
+    // List items are discovery hints with a format check only; an open item is re-read with a full GET.
+    expect(parsePaymentList({ items: [{ id: "ch_1", status: "open", transaction_date: null }], pagination: { has_more: false, returned: 1 } }).items[0].status)
+      .toBe("open");
   });
 
   it("marks quantities other than one so they can never match the one-seat plan", () => {

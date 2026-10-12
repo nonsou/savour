@@ -12,12 +12,17 @@ export type Handler = (req: TransportRequest) => TransportResponse | Promise<Tra
 export const ok = (body: unknown, status = 200): TransportResponse => ({ status, bodyText: JSON.stringify(body) });
 export const timeout = (): never => { const e = new Error("t"); e.name = "TimeoutError"; throw e; };
 
-export async function harness() {
+/** stopBefore: apply only migrations sorting before this file name; migrateRest() applies the others later
+ *  (to test a backfill over data written by the earlier schema). */
+export async function harness(opts: { stopBefore?: string } = {}) {
   const pg = new PGlite();
   await pg.exec(readFileSync(join(root, "tests/sql/supabase-stub.sql"), "utf8"));
-  for (const f of readdirSync(join(root, "supabase/migrations")).filter((x) => x.endsWith(".sql")).sort()) {
+  const files = readdirSync(join(root, "supabase/migrations")).filter((x) => x.endsWith(".sql")).sort();
+  const later = opts.stopBefore ? files.filter((f) => f >= opts.stopBefore!) : [];
+  for (const f of files.filter((x) => !later.includes(x))) {
     await pg.exec(readFileSync(join(root, "supabase/migrations", f), "utf8"));
   }
+  const migrateRest = async () => { for (const f of later.splice(0)) await pg.exec(readFileSync(join(root, "supabase/migrations", f), "utf8")); };
   let queue: Promise<unknown> = Promise.resolve();
   // PGlite has one connection: serialize role switches so concurrent awaits never interleave.
   const serial = <T>(f: () => Promise<T>): Promise<T> => {
@@ -80,5 +85,5 @@ export async function harness() {
     return id;
   }
 
-  return { pg, serial, scoped, userRpc, q, routes, seen, transport, connection, close: () => pg.close() };
+  return { pg, serial, scoped, userRpc, q, routes, seen, transport, connection, migrateRest, close: () => pg.close() };
 }

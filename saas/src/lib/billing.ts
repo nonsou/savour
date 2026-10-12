@@ -29,7 +29,7 @@ export interface OwnerBilling {
   view: "owner"; version: number; access: AccessSummary & { window_start?: string; window_end?: string | null; last_allocation?: string };
   plan: { name: string; interval: string; limits: Record<Kind, number> }; trial_limits: Record<Kind, number>;
   terms_version: string; environment: string; prices: PriceOffer[]; billing_currency: string | null;
-  billing_contact: { email: string; consent_at: string; locked: boolean } | null; customer_bound: boolean;
+  billing_contact: { email: string; consent_at: string; state: ContactState; locked: boolean; correctable: boolean } | null; customer_bound: boolean;
   subscription: { status: string; currency: string; amount: string; cancellation: "none" | "pending" | "confirmed" | "ended";
     current_period_end: string | null; status_observed_at: string } | null;
   pending_checkout: { id: string; status: string; currency: string; amount: string; created_at: string; checkout_url: string | null;
@@ -41,6 +41,19 @@ export interface OwnerBilling {
   review_required: boolean;
 }
 export type MemberBilling = { view: "member"; access: AccessSummary | null };
+
+/** billing.contact_state: editable (no customer request yet), correctable (no customer can exist for the
+ *  current email), or why the email cannot be changed. */
+export type ContactState = "editable" | "correctable" | "bound" | "in_progress" | "uncertain" | "review" | "unverified" | "request_sent";
+
+export const CONTACT_LOCK_REASONS: Record<Exclude<ContactState, "editable" | "correctable">, string> = {
+  bound: "Linked to Bachs. Change it in Manage billing.",
+  in_progress: "A request to Bachs with this email is in progress, so it cannot be changed right now. Wait a minute, then reload.",
+  uncertain: "Bachs did not confirm whether it created a billing customer with this email, so it cannot be changed here: a customer may exist. Try the checkout again; if it stays unconfirmed, SAVOUR support reviews it.",
+  review: "SAVOUR support is reviewing the billing customer for this business. The email cannot be changed until that review is resolved.",
+  unverified: "This email was sent to Bachs before SAVOUR recorded the outcome of each request, so whether a billing customer exists is unknown. Contact SAVOUR support for a manual review before changing it.",
+  request_sent: "Bachs was asked to create a billing customer with this email and did not clearly reject it, so it cannot be changed here. Contact SAVOUR support.",
+};
 
 /** State of a checkout that has not reached Bachs yet (intent status "created"). */
 export interface Preparation { error_code: string | null; detail: string | null; retry_allowed: boolean; customer_uncertain: boolean }

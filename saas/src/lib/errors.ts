@@ -136,6 +136,15 @@ const MESSAGES: Record<string, string> = {
   provider_config_invalid: "The payment provider connection is not configured correctly, so checkout did not start. Nothing was charged.",
   preparation_failed: "Checkout could not be prepared. Nothing was charged.",
   checkout_not_retryable: "This checkout attempt cannot be retried. Start a new checkout below.",
+  // Billing contact correction (only while no Bachs customer can exist for the current email)
+  billing_contact_not_requested: "Bachs has not been asked about this email yet. Change it with the billing contact form.",
+  billing_contact_unchanged: "Enter a different billing email to correct it.",
+  billing_contact_mismatch: "The billing contact changed while checkout was being prepared. Reload the page and start again. Nothing was charged.",
+  customer_request_in_progress: "A request to Bachs with this billing email is in progress, so it cannot be changed right now. Wait a minute, then reload.",
+  customer_request_uncertain: "Bachs did not confirm whether it created a billing customer with this email, so it cannot be changed here.",
+  customer_request_review: "SAVOUR support is reviewing the billing customer for this business. The email cannot be changed until then.",
+  customer_request_unverified: "Whether Bachs has a billing customer for this email is unknown. Contact SAVOUR support for a manual review.",
+  customer_request_sent: "Bachs was asked to create a billing customer with this email and did not clearly reject it, so it cannot be changed here. Contact SAVOUR support.",
   // Platform administration (founder only)
   mfa_required: "Two-step verification is required for this change. Verify with your authenticator, then try again.",
   provider_not_supported: "That provider is not supported.",

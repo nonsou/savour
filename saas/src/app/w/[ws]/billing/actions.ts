@@ -29,6 +29,19 @@ export async function setBillingContact(_: ActionState, f: FormData): Promise<Ac
   return { ok: "Billing contact saved." };
 }
 
+// Replaces an email Bachs never created a customer for. The database decides whether that is still true
+// (under its locks) and cancels the checkout that was being prepared with the old email.
+export async function correctBillingContact(_: ActionState, f: FormData): Promise<ActionState> {
+  const ws = s(f, "ws");
+  if (!isUuid(ws)) return { error: friendlyError({ message: "not_found" }) };
+  const { supabase } = await requireUser();
+  const { error } = await supabase.rpc("correct_billing_contact", { p_ws: ws, p_email: s(f, "email"),
+    p_consent: f.get("consent") === "on", p_expected_version: Number(s(f, "version")) });
+  revalidatePath(`/w/${ws}/billing`);
+  if (error) return { error: friendlyError(error) };
+  return { ok: "Billing email corrected. The checkout that was being prepared was cancelled; start a new one when ready." };
+}
+
 export async function startCheckout(_: ActionState, f: FormData): Promise<ActionState> {
   const ws = s(f, "ws");
   if (!isUuid(ws)) return { error: friendlyError({ message: "not_found" }) };

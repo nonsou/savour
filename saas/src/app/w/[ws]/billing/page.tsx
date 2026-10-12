@@ -2,12 +2,12 @@ import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { requireWorkspace } from "@/lib/auth";
 import {
-  CHECKOUT_STATUS_LABELS, formatMinor, formatPrice, KIND_LABELS, KINDS, preparationText, STATE_LABELS, TERMS_VERSION, UNAVAILABLE_REASONS,
+  CHECKOUT_STATUS_LABELS, CONTACT_LOCK_REASONS, formatMinor, formatPrice, KIND_LABELS, KINDS, preparationText, STATE_LABELS, TERMS_VERSION, UNAVAILABLE_REASONS,
   type MemberBilling, type OwnerBilling,
 } from "@/lib/billing";
 import { friendlyError } from "@/lib/errors";
 import { formatDateTime } from "@/lib/report";
-import { cancelSubscription, openPortal, retryCheckout, setBillingContact, startCheckout } from "./actions";
+import { cancelSubscription, correctBillingContact, openPortal, retryCheckout, setBillingContact, startCheckout } from "./actions";
 
 export const metadata = { title: "Billing — SAVOUR" };
 
@@ -41,6 +41,10 @@ export default async function BillingPage({ params }: { params: Promise<{ ws: st
   const prep = pending?.status === "created" ? pending.preparation ?? null : null;
   const blocking = pending && !(prep && !prep.retry_allowed) ? pending : null;
   const prepText = prep && preparationText(prep, (code) => friendlyError({ message: code }));
+  const contact = b.billing_contact;
+  // Bachs definitively rejected the email and no customer can exist for it: correcting the email is the
+  // way forward; retrying would repeat the rejected request.
+  const fixEmail = prep?.error_code === "customer_create_refused" && contact?.correctable === true;
   return (
     <>
       <h1>Billing</h1>
@@ -88,10 +92,14 @@ export default async function BillingPage({ params }: { params: Promise<{ ws: st
           <p>{blocking.amount} {blocking.currency} per month, consented {when(blocking.created_at)}. Bachs has not been asked for a payment page yet, so nothing was charged.</p>
           {prepText ? <p className="notice error" role="alert">{prepText}</p> : <p>SAVOUR is setting up the billing customer with Bachs. If this does not change, try again.</p>}
           {prep.customer_uncertain && <p className="small muted">A billing customer request to Bachs is unconfirmed. Trying again repeats the same request, so no second customer is created.</p>}
-          <ActionForm action={retryCheckout}>
-            {hidden}<input type="hidden" name="intent" value={blocking.id} />
-            <SubmitButton pendingText="Contacting Bachs…">Try again</SubmitButton>
-          </ActionForm>
+          {fixEmail
+            ? <p><a href="#contact-h">Correct the billing email below</a>. That cancels this checkout; then start a new one.</p>
+            : (
+              <ActionForm action={retryCheckout}>
+                {hidden}<input type="hidden" name="intent" value={blocking.id} />
+                <SubmitButton pendingText="Contacting Bachs…">Try again</SubmitButton>
+              </ActionForm>
+            )}
         </section>
       )}
 
@@ -162,21 +170,35 @@ export default async function BillingPage({ params }: { params: Promise<{ ws: st
 
       <section className="card stack" aria-labelledby="contact-h">
         <h2 id="contact-h">Billing contact</h2>
-        {b.billing_contact && <p>{b.billing_contact.email} · consent recorded {when(b.billing_contact.consent_at)}</p>}
-        {b.billing_contact?.locked
-          ? <p className="small muted">Linked to Bachs. Change it in Manage billing.</p>
-          : (
-            <ActionForm action={setBillingContact}>
-              {hidden}<input type="hidden" name="version" value={b.version} />
-              <div className="field">
-                <label htmlFor="billing-email">Billing email for this business</label>
-                <input id="billing-email" name="email" type="email" required maxLength={254} autoComplete="email" inputMode="email" />
-                <p className="hint">Use an address dedicated to this business. Each SAVOUR business needs its own billing email (Bachs keeps one customer per email).</p>
-              </div>
-              <label className="check"><input type="checkbox" name="consent" required /> Bachs may send receipts and payment-recovery emails to this address.</label>
-              <SubmitButton>Save billing contact</SubmitButton>
-            </ActionForm>
-          )}
+        {contact && <p>{contact.email} · consent recorded {when(contact.consent_at)}</p>}
+        {contact && contact.state !== "editable" && contact.state !== "correctable" && (
+          <p className="small muted">{CONTACT_LOCK_REASONS[contact.state]}</p>
+        )}
+        {contact?.state === "correctable" && (
+          <ActionForm action={correctBillingContact}>
+            {hidden}<input type="hidden" name="version" value={b.version} />
+            <p className="small">Bachs has not created a billing customer for this email{fixEmail ? " (it rejected the address)" : ""}, so you can correct it.
+              Correcting it cancels any checkout being prepared with the old email.</p>
+            <div className="field">
+              <label htmlFor="billing-email">Corrected billing email</label>
+              <input id="billing-email" name="email" type="email" required maxLength={254} autoComplete="email" inputMode="email" />
+            </div>
+            <label className="check"><input type="checkbox" name="consent" required /> Bachs may send receipts and payment-recovery emails to this address.</label>
+            <SubmitButton>Correct billing email</SubmitButton>
+          </ActionForm>
+        )}
+        {(!contact || contact.state === "editable") && (
+          <ActionForm action={setBillingContact}>
+            {hidden}<input type="hidden" name="version" value={b.version} />
+            <div className="field">
+              <label htmlFor="billing-email">Billing email for this business</label>
+              <input id="billing-email" name="email" type="email" required maxLength={254} autoComplete="email" inputMode="email" />
+              <p className="hint">Use an address dedicated to this business. Each SAVOUR business needs its own billing email (Bachs keeps one customer per email).</p>
+            </div>
+            <label className="check"><input type="checkbox" name="consent" required /> Bachs may send receipts and payment-recovery emails to this address.</label>
+            <SubmitButton>Save billing contact</SubmitButton>
+          </ActionForm>
+        )}
       </section>
 
       {b.ledger.length > 0 && (

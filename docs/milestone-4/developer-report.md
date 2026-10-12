@@ -2,6 +2,238 @@
 
 Model: Claude Opus 5.5 (`claude-opus-5-5`), local sessions (11 and 12 October) on `feat/saas-milestone-4` from 92cca46. Nothing was committed, pushed, deployed or applied to any cloud database. No environment file, credential, `.vercel` file or customer data was read. No provider call was made: every Bachs interaction in tests uses a mock transport.
 
+## Observed payment status `open` (12 October, branch `checkout-repair`, sanitized checkout)
+
+Scope: the narrow compatibility fix recommended in `fable-open-payment-review.md`. Nothing else changed: no `apply_subscription_facts` call was added, grace semantics are unchanged, and the contact-correction work is preserved exactly.
+
+**Read-only fact reported by Sol (observed by Sol in the real Bachs sandbox, not by the developer):** after a declined test card, `GET /v1/payments/{id}` returned status `open` while a signed `collection.failed` event was recorded. The parser failed at `payment.status` (dto_invalid), the event kept retrying, and nothing was granted. The developer made no provider call.
+
+**Adapter (`supabase/functions/_shared/bachs-dto.ts`).** `PAYMENT_STATUS` is now `PAYMENT_STATUS_DOCUMENTED` (the saved OpenAPI enum, unchanged) plus `PAYMENT_STATUS_OBSERVED = ["open"]`, with a provenance comment.
+- The match is exact and case-sensitive. `open` is kept as-is in the facts and is not rewritten to `created`.
+- `OPEN`, `pending`, `authorized` and every other unlisted status are still dto_invalid.
+- `parsePaymentList` already used a format check rather than the enum, so it needed no change. List items remain hints only.
+
+**Migration: `supabase/migrations/20261012164322_m4_observed_open_payment.sql`** (the CLI-generated stub; the only migration touched). It does `create or replace` on `billing.absorb_payment` with the sealed body unchanged except one line: `'open'` joins the existing `('created', 'processing')` branch, which returns `payment_pending`. It has the same signature, `security definer` and `search_path`. Owner and grants are preserved, and a test asserts both.
+- First payment: an `open` charge grants no period, binds no subscription, writes no `payment_failures` row (no grace), and leaves the intent and trial limits unchanged. A later `succeeded` GET grants normally. A later `failed` GET returns `payment_failed_no_access` as before.
+- Renewal: an `open` `subscription_cycle` charge records no failure observation and no grace. A later `failed` GET returns `renewal_failed` and records the failure exactly as before. The pending branch still does not call `apply_subscription_facts`.
+- The full GET stays the only authority. The `collection.failed` envelope (even one with `status: "FAILED"`) establishes nothing by itself.
+- Worker code is unchanged. `payment_pending` completes the event (status `done`, claim released, no retry). Discovery still schedules a pending payment for a later look, as before.
+
+**Return page and poller: unchanged.** The pending branch does not touch the intent, so the page looks the same as before the decline: "Payment processing: Waiting for payment", then the bounded 4-minute automatic schedule, then "Bachs has not confirmed the payment yet … Check again". This is true (nothing is confirmed) but not specific to a decline. I judged it not materially misleading, so the copy is untouched (see risks).
+
+**Tests (all local; mock Bachs transport, synthetic fixtures shaped like the sandbox observation, PGlite):**
+- `tests/unit/m4-dto.test.ts`: `open` parses and is preserved. `OPEN`, `Open`, `open `, `pending`, `authorized`, `requires_payment_method`, empty and null are rejected at `payment.status`. A list item with `open` remains a hint.
+- `tests/sql/m4-observed-open-payment.test.ts` runs the real signed webhook intake, `processEvents` and the SQL:
+  - signed `collection.failed` plus GET `open` → `payment_pending`, event done, claim released, attempts 1, nothing to re-claim; access, intents and all billing rows unchanged;
+  - repeated `open` (two more events, including `invoice.payment_failed`) → idempotent, with an identical row footprint;
+  - the same payment later `succeeded` → `granted`, access active, intent paid;
+  - renewal `open` → `payment_pending` with zero `payment_failures`, then `failed` → `renewal_failed` with one failure row anchored at the invoice period;
+  - a separate workspace: `open` then `failed` → `payment_failed_no_access`, with no period, binding, failure row or review;
+  - `OPEN`, `pending` and `authorized` from the GET → event `failed` with `dto_invalid`, nothing written;
+  - the replaced function's definition equals the sealed one except the single branch line and its comment. Security definer, config, owner and ACL are identical.
+- Mutation check (run locally, then reverted): without the SQL line, 5 of these SQL tests fail, because `open` lands in `review:payment_not_exact`. Without the parser change, the DTO test and 4 SQL tests fail. Both halves are needed.
+
+**Actual local results:** `npm run typecheck` clean; `npm run lint` clean. The full `npx vitest run` was run once: 356 passed, 2 skipped and 4 failed. The 4 failures are the known sanitized-harness failures and were not touched: `legacy.test.ts` saved QA snapshots, `sol-legacy-m3.test.ts` recorded bodies, and two in `repo-hygiene.test.ts`, because this checkout lacks those local files and git state.
+
+**Changed files (this task only):** `supabase/migrations/20261012164322_m4_observed_open_payment.sql` (stub filled), `supabase/functions/_shared/bachs-dto.ts`, `tests/unit/m4-dto.test.ts`, new `tests/sql/m4-observed-open-payment.test.ts`, and this report.
+
+**Not verified:** no real provider test was run by the developer. Whether the sandbox later moves an `open` charge to `failed`, `expired` or `succeeded` (and emits an event when it does) is unknown. Sol needs to re-run the declined-card and later-successful-card flows against a deployed build.
+
+**Risks:**
+- If Bachs leaves a declined first charge `open` indefinitely, it never becomes `payment_failed_no_access`. Access stays trial, so this fails closed, but the intent stays `open` until the checkout expires. Discovery keeps re-reading a pending payment on its retry schedule.
+- If a renewal charge stays `open` after a decline and Bachs sends no later `failed` GET, no payment-failure grace starts from the payment. Renewal state then depends on subscription events (`absorb_subscription`), which is the conservative reading chosen here. Whether this is enough is a product decision; adding `apply_subscription_facts` to the pending branch was explicitly out of scope.
+- The return page cannot tell a declined-then-open charge from a slow one. After the poll window it says confirmation "can take a few minutes", which is weaker than "not completed, try again".
+- Other unexpected statuses still retry as dto_invalid and are marked dead after eight attempts by the existing fail_event function; this task does not change that policy.
+
+## Billing contact correction and truthful contact locking (12 October, branch `checkout-repair`, sanitized checkout)
+
+Scope: contact-correction files, new tests and this report only. The checkout-preparation and payment-refresh fixes are preserved; Edge code (`owner-core.ts`, `db.ts`, `bachs-checkout`) is unchanged by this task.
+
+**Read-only facts reported by Sol (observed by Sol in the real Bachs sandbox, not by the developer):**
+- Passed: the initial successful payment; five signed events; duplicate handling; the portal; scheduled cancellation.
+- **Refund: did not pass.** A simulated refund failed, and SAVOUR processed it without revoking access. This report does not claim a successful refund and does not guess the provider-side cause. Nothing in this task touches refund handling.
+- The payment-refresh fix (bounded 4-minute automatic schedule plus manual Check again) is complete, and Sol's local browser check passed. That supersedes the "browser run pending" note in the next section.
+
+**Defect (from `fable-contact-correction-review.md`):** two predicates decided one thing. The sealed `set_billing_contact` refuses once any `provider_customers` row exists, and that row is written on the first checkout attempt. `get_billing` reported `locked` only once a customer was bound. So after any early stop, the page offered an email edit that the server always refused, with copy saying "linked to the payment provider".
+
+**Migration: `supabase/migrations/20261012163920_m4_customer_contact_correction.sql`** (the CLI-generated stub; the only migration touched). All earlier migrations, including `20261012134720_m4_checkout_preparation.sql`, are unchanged. `billing.guard_row` is not replaced. No row is deleted, no bound customer is replaced, and metadata adoption and binding are unchanged.
+- **One state function, `billing.contact_state(ws)`**, used by both `get_billing` and the correction RPC. The states are:
+  - `editable`: no customer request row yet; the existing `set_billing_contact` applies.
+  - `bound`: a customer is bound.
+  - `in_progress`: a live creation lease, or an intent in `requesting`, `open`, `uncertain`, `completed_unpaid` or `review`.
+  - `uncertain`: sticky uncertainty, *or an expired lease*, or a leftover claim token.
+  - `review`: an unresolved `customer_*` review row.
+  - `unverified`: legacy history unknown.
+  - `request_sent`: a claim was made with the current identity and there is no definitive refusal proof.
+  - `correctable`: none of the above.
+- **Refusal proof, current claim only.** New `provider_customers.create_refused_at` and `create_refused_detail` columns. A check constraint limits the detail to `http_400:VALIDATION_ERROR` and `http_422:VALIDATION_ERROR`.
+  - `gateway_record_preparation` (replaced, same signature and grants) sets the proof in the same `UPDATE` that releases the lease. All of these must hold:
+    - the outcome's token equals the current `create_claim_token`;
+    - the outcome is `refused` with code `customer_create_refused`;
+    - the detail equals one of the two allowlisted strings exactly;
+    - the lease is still live;
+    - nothing is uncertain.
+  - Any other outcome of the current claim clears the proof. A late outcome from a superseded claim leaves the proof untouched.
+  - `gateway_customer_claim` (replaced) clears the proof on every new claim, including the review branch.
+  - Claim fencing, attempt fencing and sticky uncertainty are otherwise unchanged.
+- **Request identity rotation.** New columns `customer_request_key` (unique, format-checked), `customer_key_generation`, `customer_key_attempts_base` and `history_unknown`.
+  - The original `customer_idempotency_key` never changes, and `guard_row` still enforces that.
+  - `gateway_checkout_context` (replaced) returns `coalesce(customer_request_key, customer_idempotency_key)` in the existing `customer_idempotency_key` field, plus `customer_key_generation`. So `owner-core` uses the effective key without code changes.
+  - The context now fails with `billing_contact_mismatch` if the request row's email differs from the workspace contact.
+- **New trigger `provider_customers_request_guard`.** It runs in addition to `guard_row` and enforces:
+  - the new identity fields are immutable once a customer is bound;
+  - the generation never decreases;
+  - the key changes exactly when the generation changes;
+  - the attempts base never decreases;
+  - `history_unknown` can never go from true to false.
+- **Legacy rows.** Every unbound row that exists when the migration runs is backfilled to `history_unknown = true`. Those rows predate per-claim outcome records, so a past POST may have succeeded even if a later lookup by email finds nothing.
+  - They show `unverified`, and correction is refused with `customer_request_unverified`.
+  - There is no operator clear endpoint and no override. Checkout itself is unaffected: same key, same adoption and binding rules.
+- **`private.correct_billing_contact` / `public.correct_billing_contact`** (Owner RPC, granted to `authenticated` only):
+  1. `require_owner`, then the billing row lock, then the expected-version check.
+  2. Locks the active and created intents, then the customer rows (the checkout lock order).
+  3. Re-reads `contact_state` under those locks. Anything but `correctable` is refused with a state-specific code.
+  4. Email format, consent and a changed-email check.
+  5. **Abandons created intents** (`last_error_code = 'contact_corrected'`).
+  6. Updates the workspace contact, mapping a unique violation to `billing_email_in_use`. Any failure rolls back the whole call, including step 5.
+  7. Sets each unbound row's email, `generation + 1`, a new effective key, `attempts_base = create_attempts`, and clears the proof.
+  8. Audits `billing.contact_corrected` with the version, generation, previous refusal detail and abandoned-intent count. No email values are audited.
+- **`get_billing`** (replaced) adds `billing_contact.state` and `correctable`. `locked` now means "neither editable nor correctable".
+- **Grants.** The correction RPC goes to `authenticated` only. `contact_state` and the trigger function are executable by none of `anon`, `authenticated` or the billing roles. The replaced gateway functions keep `billing_gateway`-only grants. The Edge allowlist in `db.ts` is unchanged.
+
+**UI (`src/app/w/[ws]/billing/page.tsx`, `actions.ts`, `src/lib/billing.ts`, `src/lib/errors.ts`):**
+- `editable`: the existing save form.
+- `correctable`: only a "Correct billing email" form, using the new `correctBillingContact` action. The action validates the workspace UUID and calls the Owner RPC with the user's own session.
+- Every locked state: its own explanation and no email form. "Linked to Bachs" is now used only for `bound`.
+- When preparation stopped with `customer_create_refused` and the contact is correctable, the card links to the correction form instead of offering "Try again", which would repeat the rejected request. A refusal the server does not certify keeps "Try again".
+- Bundled Next.js guides read: `forms.md` and `server-actions.md` (authorize inside each action; `revalidatePath` re-renders in the same response).
+
+**Tests (mock transport and PGlite; every provider status and error code is synthetic):**
+- `tests/sql/m4-contact-correction.test.ts` (9, real SQL through the scoped gateway role and the real `owner-core` flow):
+  1. **Definitive current-claim refusal → correction succeeds.** The created intent is abandoned with `contact_corrected`. The old intent can no longer claim, load context, mark requesting or resume (`checkout_intent_stale`).
+     - Old and new keys differ. The new checkout's POST uses only the new key; the original `customer_idempotency_key` is unchanged.
+     - The audit has no `@`. Afterwards the state is `bound` and correction is refused.
+     - Even the table owner cannot change the identity fields or the original key, or delete the row.
+  2. **Late results from the pre-correction run.** Run with a new claim in flight:
+     - The old token's late refusal neither sets proof nor releases the new lease.
+     - The old token's late uncertain outcome leaves the new token and lease intact and only makes the state stricter.
+     - A late bind with the old email is refused (`billing_customer_review`) and nothing is bound.
+     - The new run then binds with the new key.
+  3. **Live lease → `customer_request_in_progress`; expired lease → `customer_request_uncertain`.** The claim's own late 422 VALIDATION_ERROR, arriving after expiry with the still-current token, certifies nothing (`request_sent`).
+  4. **Recorded uncertainty stays sticky.** A later 422 VALIDATION_ERROR on the same key does not make the contact correctable.
+  5. **Allowlist.** None of these certify, each tested through a real current claim:
+     - other statuses: 400 INVALID_REQUEST, 409 CONFLICT, and 429, 409 or 401 with VALIDATION_ERROR;
+     - incomplete details: `http_422` or `http_400` with no code;
+     - malformed details: wrong case, extra characters, leading space, trailing newline, four-digit status, `VALIDATION_ERRORS`, null;
+     - the right detail with the wrong code.
+
+     Only the exact detail certifies. A new claim clears the proof, and replaying the superseded claim's refusal does not restore it. The column check rejects a non-allowlisted detail.
+  6. **Unresolved customer review** (ambiguous lookup) blocks correction.
+  7. **Refusals without side effects.** Each of these is refused and nothing changes:
+     - stale version;
+     - another workspace's email (`billing_email_in_use`, with the intent abandonment rolled back);
+     - unchanged email, invalid email, no consent;
+     - an admin member (`forbidden`), a stranger or another Owner (`not_found`).
+  8. **Privileges.**
+     - The correction RPC is executable by `authenticated` only, not by `anon`, `billing_gateway`, `billing_worker` or `billing_intake`.
+     - `contact_state` is executable by none of them.
+     - The gateway functions stay `billing_gateway`-only, and an authenticated call to `gateway_customer_claim` is `permission denied`.
+  9. **Legacy backfill.** This test uses a separate PGlite instance that applies migrations only up to `20261012134720` and writes rows with the previous schema: one 422 VALIDATION_ERROR refusal and one lookup-only stop with zero POSTs. It then applies the new migration.
+     - Both rows end up `unverified`, and correction is refused for both.
+     - The flag cannot be cleared, even by the table owner, and no history or override function exists.
+     - Checkout still binds with the original key.
+
+  `tests/sql/m4-harness.ts` gained an optional `stopBefore` and `migrateRest()` for this; existing callers are unchanged.
+- `tests/unit/m4-contact-correction-ui.test.ts` (7): the server-rendered page, with forms identified by the action they are bound to.
+  - `editable` offers only save; `correctable` offers only correct.
+  - All six locked states have distinct explanations and no email input.
+  - A certified refusal offers correction and no retry; an uncertified one offers retry and no correction.
+  - The correction action's RPC arguments, error mapping and UUID validation.
+- `tests/unit/m4-checkout-preparation-ui.test.ts`: fixture shape only (adds `state` and `correctable`); no assertion changed.
+- **Mutation checks.** Each mutation was applied to the migration, run, and reverted; a grep confirmed no residue.
+
+  | Mutation | Tests that failed |
+  | - | - |
+  | Any 4xx certifies | 1 (allowlist) |
+  | Proof without a live lease | 1 (expired lease) |
+  | New claim keeps old proof | 1 (allowlist) |
+  | Proof ignores the claim token | 3 |
+  | Correction does not abandon created intents | 1 |
+  | Context returns the original key | 2 |
+  | State ignores `history_unknown` | 1 (legacy) |
+
+**Actual local results (this checkout):**
+
+| Check | Result |
+| - | - |
+| `vitest run` `m4-contact-correction`, `m4-checkout-preparation` (SQL), `m4-contact-correction-ui` | 3 files, 24/24 pass |
+| `vitest run` on the four billing UI files | 4 files, 26/26 pass |
+| `npm test` (justified by the schema change and the replaced `get_billing` and gateway functions) | 46 files: 41 passed, 3 failed, 2 skipped. 354 tests: 348 passed, 4 failed, 2 skipped. The 4 failures are the same sanitized-checkout ones as before, re-confirmed by their errors: missing `docs/milestone-2/` and `docs/milestone-3/qa-snapshot-baseline.json`, missing `.env.example`, and the `node_modules` symlink gitignore check. None touch billing. |
+| `npm run typecheck` / `npm run lint` | Clean |
+| Build, `deno check` | Not run. No Edge code changed in this task. |
+
+**Limits of PGlite.** PGlite has one connection, so every "concurrent" case above is a deterministic interleaving of serialized transactions: a mock POST held open between two transactions, and leases expired by an `UPDATE`. That proves the fencing logic for those orders. It does not exercise:
+- row-lock waits;
+- the correction/claim/bind lock order under contention, or deadlock behaviour;
+- `clock_timestamp()` lease expiry under real latency;
+- two Edge invocations on separate pooler connections.
+
+These need real Postgres with independent sessions.
+
+**Finding in sealed code (not changed here).** `gateway_bind_customer` queues its review (`customer_email_mismatch`, `customer_replacement_refused`, `customer_bound_elsewhere`) and then raises `private.fail`. The raise rolls the review insert back with the rest of the statement, so those refusals block correctly but leave no review row and no `review_required` banner. Test 2 asserts the refusal only. Fixing this needs a separate reviewed change, for example recording the review in a committed step before failing.
+
+**Pending hosted and provider checks (not done; no cloud or API access here):**
+1. Sol reviews and applies `20261012163920`. Before and after, count unbound `provider_customers` rows; all of them should become `history_unknown`. The old test workspace should show `unverified`.
+2. Hosted acceptance with a disposable `.test` workspace:
+   1. A rejected email ends in `customer_create_refused` with an allowlisted detail, and `get_billing` shows `correctable`.
+   2. Correct the email. Confirm the abandoned intent shows `contact_corrected` and the audit row is present.
+   3. The new checkout's `POST /v1/customers` carries the new `Idempotency-Key` (Sol checks the Bachs request log).
+   4. The customer binds and the state becomes `bound`.
+   5. The Bachs dashboard shows one customer for the workspace and none for the rejected email.
+3. Confirm Bachs accepts the effective key. It is 109 characters for generation 1, against 106 for the original; Bachs's maximum key length is not known here.
+4. Confirm the rejection allowlist against the real response. The developer has not seen a Bachs `POST /v1/customers` response; the allowlist is the one specified in Sol's review.
+5. Run the two-session races on real Postgres:
+   - correction against a claim taken at the same moment;
+   - correction against a late bind;
+   - two Owners correcting at once (expect one `stale_version`).
+6. Legacy rows: there is deliberately no resolution path. Any future one must be an explicit, reviewed change, and the trigger forbids clearing `history_unknown` in place.
+7. Browser check of the contact section in each state, including keyboard focus for the "Correct the billing email below" link.
+
+**Risks:**
+- Any Owner (not only the consenting one) can correct, and that abandons a co-owner's created intent. This matches how `begin_checkout` already supersedes created intents.
+- Correction is refused for an unchanged email even when only the key would need rotating. That choice is deliberate, but it means support must handle any non-email cause of a validation error.
+
+## Sandbox acceptance and return-page refresh (12 October, branch `checkout-repair`, sanitized checkout)
+
+**Acceptance evidence observed by Sol in the real Bachs sandbox (reported to the developer; identifiers omitted):**
+- Checkout succeeded in the sandbox. Signed webhook intake and cron-triggered worker processing were observed.
+- Five valid signed events arrived. `subscription.created`, `invoice.paid` and `subscription.updated` were each held safely as `awaiting_payment`. `checkout.completed` granted exactly one verified paid period. `collection.succeeded` was handled as a duplicate.
+- Result in the database: the verified subscription is `active`, paid period count 1, and there is no unresolved review. Access became active correctly.
+- The developer did not observe any of this directly. Nothing in this checkout talks to Bachs or the database.
+
+**Observed UX defect:** the return page still showed "Waiting for payment" and "Still confirming" after access became active. `RefreshPoller` stopped re-reading after 60 s (12 checks, 5 s apart). The worker processes a batch of 3 events once a minute, so the five events needed two cron runs, and confirmation landed after the page had stopped checking. The server state was correct; only the page was stale.
+
+**Fix (`src/app/w/[ws]/billing/refresh-poller.tsx` only; no page, SQL, Edge or migration change):**
+- Automatic checks run on a bounded schedule: every 5 s for the first minute, then every 15 s, 4 minutes in total (24 refreshes). That covers two worker runs plus processing time without polling forever.
+- After automatic checks stop, the page says Bachs has not confirmed yet and shows a **Check again** button. The button calls `router.refresh()` right away, restarts the bounded schedule, and is disabled while the refresh is in flight. Copy stays in the existing `aria-live="polite"` region.
+- When `active` is false (paid, no pending checkout, or a `created` intent), the poller renders nothing and schedules nothing, so no "checking" or "not confirmed" copy remains beside the server-verified status. If a checkout becomes pending again, the schedule starts over.
+- The poller only triggers `router.refresh()`, which re-runs `get_billing` on the server. It reads no query string, redirect or browser state. Whether the page shows "Payment confirmed" is still decided only by the server-verified `access.state` with no pending checkout. Paid-status handling in `return/page.tsx` is unchanged.
+
+**New test `tests/unit/m4-return-refresh.test.ts` (6):**
+- The automatic schedule lasts at least 3 minutes, ends, never checks more often than every 5 s, and stays within 10 minutes.
+- The return page, rendered on the server: a pending checkout shows its status and "Checking with Bachs". Verified paid access shows "Payment confirmed by Bachs" and none of the waiting, checking, not-confirmed or Check-again copy. Active access with a checkout still pending is not shown as paid. An inactive poller renders empty markup.
+- Limitation: there is no DOM test library in this project (none was added), so timer ticks and the Check again click were not exercised. They are covered only by code reading and the browser check below.
+
+**Actual local results (this checkout):**
+
+| Check | Result |
+| - | - |
+| `vitest run` on `m4-return-refresh`, `m4-checkout-preparation-ui`, `m4-billing-ui` | 3 files, 19/19 pass |
+| `vitest run tests/unit` | 29 files: 27 passed, 1 failed, 1 skipped. 262 tests: 259 passed, 2 failed, 1 skipped. Both failures are in `repo-hygiene.test.ts` and come from this sanitized checkout, as before: `.env.example` is absent, and `node_modules` is a symlink. |
+| `npm run typecheck` / `npm run lint` | Clean |
+
+**External check still pending:** a browser run of the sandbox checkout against the deployed app. It should confirm that the return page switches to "Payment confirmed by Bachs" on its own when confirmation takes two cron runs. It should also confirm that after automatic checks stop, Check again refreshes and restarts checking, and that a screen reader announces the status changes.
+
 ## Checkout preparation recovery (12 October, branch `checkout-repair`, sanitized checkout)
 
 Witnessed blocker: in the real Bachs sandbox, `begin_checkout` persisted the intent (status `created`, `request_attempts` 0, no `provider_checkout_id`). The page then showed "Preparing", with no error and no retry, and no `checkout.failed` log appeared.
@@ -329,3 +561,18 @@ An observed UI defect remains under repair: the return page stopped automatic re
 Sol exercised the actual React component in a temporary local Next.js screen with fake public Supabase configuration and no provider calls. A server-confirmed result after 90 seconds replaced pending state automatically; no stale checking message remained in that section. The second fixture stayed pending: automatic checks stopped at four minutes, Check again appeared, and its real browser click refreshed/restarted checking. Screenshots were saved. The local test screen and server were removed before build/deployment. The six focused return-status tests passed in the complete repository; type checking passed. Lint had flagged Date.now only in the temporary server fixture; canonical lint is re-run after removing it.
 
 Canonical lint and final application build passed after the temporary fixture and its stale generated dev route types were removed. No test route remains in source.
+
+
+## Sol acceptance checkpoint — contact correction and declined-payment compatibility
+
+The two Opus changes were independently reviewed and integrated into the complete development repository. Full suite: 361 passed, one optional fixture skipped; typecheck and lint passed. The contact UI build passed. Cached Deno checks passed for bachs-worker and bachs-checkout. Both additive migrations were applied only to savour-dev; local filenames match hosted history (20261012163920 contact correction; 20261012164322 observed open payment). Existing migration bodies and Firebase MVP HTML files remain unchanged.
+
+Hosted contact predicates and privileges passed: legacy unbound test contact is unverified; the paid customer remains bound; authenticated has the Owner correction RPC but anon and billing_gateway do not. Security advisors remain at the existing baseline of 26 informational deny-by-default RLS notices and the existing leaked-password warning. The isolated checkout’s four unrelated fixture/hygiene failures did not occur in the complete repository.
+
+Real sandbox evidence: the declined card displayed “Your card has been declined.” The charge GET returned open, explaining the old dto_invalid retry. Before the repair, paid periods and subscriptions remained zero, trial limits unchanged, and no grace began. Hosted post-repair event completion is still pending.
+
+A separate successful sandbox payment confirmed automatically in the hosted return page; its server ledger and Business limits became active. This is the first actual provider-backed acceptance of the four-minute polling fix, beyond the earlier local timer fixture.
+
+The first simulated refund failed and did not revoke paid access (safety passed). A fresh full-refund simulation was refused with 403 until the owner approved and saved Write Refunds on the existing sandbox key; all nine earlier scopes were preserved. The request then returned 201 processing. Its refund.created event was processed safely without revocation while the full payment GET still said succeeded. Successful refund completion/revocation is pending; no success is claimed from the request or event alone. No real money moved.
+
+Remaining: deploy/repoint only a protected Ready Preview, verify contact correction against Bachs, post-repair declined-event handling, real two-connection fencing, completed refund, renewal/failure/dispute cases and NGN account-specific capability. Milestone 4 is not complete.

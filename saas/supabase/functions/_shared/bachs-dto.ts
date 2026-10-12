@@ -155,8 +155,13 @@ export function parseCheckout(x: unknown): CheckoutFacts {
 }
 
 // ---------------------------------------------------------------- payment (PaymentResponse)
-export const PAYMENT_STATUS = ["created", "processing", "succeeded", "accepted", "failed", "expired", "cancelled", "refunded",
+export const PAYMENT_STATUS_DOCUMENTED = ["created", "processing", "succeeded", "accepted", "failed", "expired", "cancelled", "refunded",
   "partially_refunded", "auto_refunded", "underpaid", "overpaid"] as const;
+// Observed extensions, not in the saved OpenAPI enum. 'open': Bachs sandbox, 2026-10-12, a checkout
+// charge after a declined test card. Non-final: no grant, no grace (migration 20261012163330). Exact
+// lowercase match only; anything else not listed is still dto_invalid.
+export const PAYMENT_STATUS_OBSERVED = ["open"] as const;
+export const PAYMENT_STATUS = [...PAYMENT_STATUS_DOCUMENTED, ...PAYMENT_STATUS_OBSERVED] as const;
 export interface PaymentFacts {
   payment_id: string; status: string; billing_reason: string | null; checkout_id: string | null; reference: string | null;
   amount: string; amount_paid: string | null; amount_remaining: string | null; currency: string; subscription_id: string | null;
