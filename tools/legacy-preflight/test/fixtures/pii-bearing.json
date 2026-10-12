@@ -1,0 +1,44 @@
+{
+  "categories": { "cat-1": { "name": "Priya Synthetic-Testperson Catering" } },
+  "reviewers": { "priya.synthetic@example.test": { "name": "Priya Synthetic-Testperson", "phone": "+1 555 0199 042" } },
+  "sessions": {
+    "market-day-priya.synthetic@example.test": {
+      "date": "2025-01-01",
+      "name": "Priya Synthetic-Testperson market day",
+      "notes": "Gate code for Priya Synthetic-Testperson is 4417",
+      "reviewerCode": "REVCODE-PRIYA-7731",
+      "status": "signed by Priya Synthetic-Testperson",
+      "approvedBy": "priya.synthetic@example.test",
+      "approvedAt": "2025-01-01T00:00:00+13:00",
+      "sessionNotes": "Call Priya Synthetic-Testperson on +1 555 0199 042",
+      "submissions": {
+        "sub-priya.synthetic@example.test": {
+          "taster": "Priya Synthetic-Testperson",
+          "role": "Priya's synthetic role",
+          "reviewerEmail": "priya.synthetic@example.test",
+          "vendors": [
+            {
+              "vendorId": "priya.synthetic@example.test",
+              "vendorName": "Priya Synthetic-Testperson",
+              "businessName": "Priya's Synthetic Dumplings",
+              "categoryName": "Priya Synthetic-Testperson Catering",
+              "att": "Early",
+              "attendance": 5,
+              "assessmentVersion": 2,
+              "criteriaSnapshot": {
+                "taste": true, "aroma": true, "appear": true, "hygiene": true,
+                "environ": true, "storage": true, "safety": true, "attendance": true,
+                "contact:priya.synthetic@example.test": true
+              },
+              "taste": 4.8125,
+              "obs": "Priya Synthetic-Testperson kept the freezer at 12 Synthetic Lane",
+              "notes": "Priya Synthetic-Testperson said the freezer at 12 Synthetic Lane failed",
+              "Priya Synthetic-Testperson private remark": 9.4375
+            }
+          ]
+        }
+      }
+    }
+  },
+  "vendors": { "priya.synthetic@example.test": { "name": "Priya Synthetic-Testperson", "deleted": false } }
+}

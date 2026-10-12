@@ -1,0 +1,108 @@
+{
+  "categories": {
+    "cat-synthetic-1": { "name": "Synthetic Category One" },
+    "cat-synthetic-2": { "name": "Synthetic Category Two", "deleted": true }
+  },
+  "reviewers": {
+    "rev-synthetic-1": { "name": "Synthetic Reviewer" }
+  },
+  "sessions": {
+    "sess-synthetic-approved": {
+      "date": "2026-01-01",
+      "name": "Synthetic Approved Session",
+      "notes": "Synthetic session note",
+      "activeFrom": "2026-01-01T08:00",
+      "activeUntil": "2026-01-01T17:00",
+      "reviewerCode": "SYNTH-CODE-0001",
+      "status": "approved",
+      "approvedBy": "Synthetic Reviewer",
+      "approvedAt": 1767261600000,
+      "submissions": {
+        "sub-synthetic-1": {
+          "taster": "Synthetic Taster",
+          "role": "Synthetic Role",
+          "time": "10:00",
+          "timestamp": 1767258000000,
+          "actions": [{ "kind": "synthetic" }],
+          "vendors": [
+            {
+              "vendorId": "ven-synthetic-1",
+              "vendorName": "Synthetic Stall One",
+              "businessName": "Synthetic Business One",
+              "categoryName": "Synthetic Category One",
+              "att": "Early",
+              "attendance": 5,
+              "assessmentVersion": 2,
+              "criteriaSnapshot": {
+                "taste": true, "aroma": true, "appear": true, "hygiene": true,
+                "environ": true, "storage": true, "safety": true, "attendance": true
+              },
+              "taste": 4, "aroma": 3, "appear": 5, "hygiene": 4,
+              "environ": 3, "storage": 4, "safety": 5,
+              "sample": "Synthetic sample", "cust": "Synthetic customer note", "obs": "Synthetic observation",
+              "fu": "Synthetic follow-up", "pi": "Synthetic improvement"
+            },
+            {
+              "vendorId": "ven-synthetic-2",
+              "vendorName": "Synthetic Stall Two",
+              "businessName": "Synthetic Business Two",
+              "categoryName": "Synthetic Category One",
+              "att": "Absent",
+              "attendance": 0,
+              "assessmentVersion": 2,
+              "criteriaSnapshot": {
+                "taste": true, "aroma": true, "appear": true, "hygiene": true,
+                "environ": true, "storage": true, "safety": true, "attendance": true
+              },
+              "notice": "Synthetic notice", "absenceReason": "Synthetic reason"
+            }
+          ]
+        }
+      }
+    },
+    "sess-synthetic-pending": {
+      "date": "2026-01-02",
+      "name": "Synthetic Pending Session",
+      "reviewerCode": "SYNTH-CODE-0002",
+      "status": "pending",
+      "submissions": {
+        "sub-synthetic-2": {
+          "taster": "Synthetic Taster",
+          "timestamp": 1767344400000,
+          "vendors": [
+            {
+              "vendorId": "ven-synthetic-3",
+              "vendorName": "Synthetic Stall Three",
+              "businessName": "Synthetic Business Three",
+              "categoryName": "Synthetic Category One",
+              "att": "Present",
+              "assessmentVersion": 2,
+              "criteriaSnapshot": {
+                "taste": true, "aroma": false, "appear": true, "hygiene": true,
+                "environ": false, "storage": true, "safety": true, "attendance": false
+              },
+              "taste": 2, "appear": 4, "hygiene": 3, "storage": 2, "safety": 4
+            },
+            {
+              "vendorId": "ven-synthetic-1",
+              "vendorName": "Synthetic Stall One",
+              "businessName": "Synthetic Business One",
+              "categoryName": "Synthetic Category One",
+              "att": "Absent",
+              "assessmentVersion": 2,
+              "criteriaSnapshot": {
+                "taste": true, "aroma": false, "appear": true, "hygiene": true,
+                "environ": false, "storage": true, "safety": true, "attendance": false
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "vendors": {
+    "ven-synthetic-1": { "name": "Synthetic Stall One" },
+    "ven-synthetic-2": { "name": "Synthetic Stall Two" },
+    "ven-synthetic-3": { "name": "Synthetic Stall Three", "deleted": true }
+  }
+}

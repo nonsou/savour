@@ -1,0 +1,128 @@
+{
+  "categories": null,
+  "reviewers": null,
+  "sessions": {
+    "sess-legacy": {
+      "date": "2024-05-01",
+      "name": "Synthetic Legacy Session",
+      "status": "approved",
+      "approvedBy": "   ",
+      "approvedAt": 1714560000000,
+      "submissions": {
+        "sub-legacy": {
+          "taster": "Synthetic Taster",
+          "vendors": [
+            { "vendorId": "ven-mix-1", "vendorName": "Synthetic Legacy Stall", "att": "Early", "taste": 4, "hygiene": 3 },
+            { "vendorId": "ven-mix-2", "vendorName": "Synthetic Legacy Absent", "att": "Absent" },
+            { "vendorId": "ven-mix-3", "vendorName": "Synthetic Legacy Presence Only" },
+            { "vendorId": "ven-mix-4", "vendorName": "Synthetic Legacy Absent Scored", "att": "Absent", "taste": 2 }
+          ]
+        }
+      }
+    },
+    "sess-v2-mixed": {
+      "status": "approved",
+      "approvedAt": 1767261600000,
+      "submissions": {
+        "sub-empty": { "vendors": [] },
+        "sub-mixed": {
+          "vendors": [
+            {
+              "vendorId": "ven-mix-1", "att": "Absent", "attendance": 0, "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true },
+              "taste": 4
+            },
+            {
+              "vendorId": "ven-mix-2", "att": 5, "attendance": 5, "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true }
+            },
+            {
+              "vendorId": "ven-mix-3", "att": true, "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": 1 }
+            },
+            {
+              "vendorId": "ven-mix-4", "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "safety": true, "attendance": true, "freshness": true }
+            },
+            {
+              "vendorId": "ven-mix-1", "att": "Middle", "attendance": 1, "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true },
+              "taste": 3
+            },
+            {
+              "vendorId": "ven-ghost", "att": "Late", "attendance": 1, "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true }
+            },
+            {
+              "vendorId": "ven-mix-4", "att": "Early", "attendance": 5, "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true },
+              "taste": 4, "aroma": 4, "total": 31.5
+            },
+            {
+              "vendorId": "ven-mix-5", "att": "Early", "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": false }
+            },
+            {
+              "vendorId": "ven-mix-6", "att": "Present", "attendance": 5, "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": false }
+            },
+            {
+              "vendorId": "ven-mix-7", "att": "Present", "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true }
+            },
+            {
+              "vendorId": "ven-mix-8", "att": "Tardy", "attendance": 3, "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true }
+            },
+            {
+              "vendorId": "ven-mix-9", "att": "—", "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true }
+            },
+            {
+              "vendorId": "ven-mix-10", "att": "Early", "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true }
+            },
+            {
+              "vendorId": "ven-mix-11", "att": "Late", "attendance": "1", "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true }
+            },
+            {
+              "vendorId": "ven-mix-12", "att": "Early", "attendance": 5, "assessmentVersion": 2,
+              "criteriaSnapshot": { "taste": true, "aroma": true, "appear": true, "hygiene": true, "environ": true, "storage": true, "safety": true, "attendance": true },
+              "taste": "4"
+            }
+          ]
+        }
+      }
+    },
+    "sess-open": { "status": "open" },
+    "sess-pending-stamped": { "status": "pending", "approvedAt": 1767261600000 },
+    "sess-no-status": { "approvedAt": 1767261600000 },
+    "sess-versions": {
+      "status": "pending",
+      "submissions": {
+        "sub-versions": {
+          "vendors": [
+            { "vendorId": "ven-mix-2", "att": "Early", "assessmentVersion": 3, "criteriaSnapshot": { "taste": true } },
+            { "vendorId": "ven-mix-3", "att": "Early", "assessmentVersion": 2 },
+            { "vendorId": "ven-mix-4", "att": "Early", "criteriaSnapshot": [] }
+          ]
+        }
+      }
+    }
+  },
+  "vendors": {
+    "ven-mix-1": { "name": "Synthetic Legacy Stall" },
+    "ven-mix-2": { "name": "Synthetic Legacy Absent", "deleted": true },
+    "ven-mix-3": { "name": "Synthetic Legacy Presence Only", "deleted": "yes" },
+    "ven-mix-4": { "name": "Synthetic Unknown Criterion Stall" },
+    "ven-mix-5": { "name": "Synthetic Five" },
+    "ven-mix-6": { "name": "Synthetic Six" },
+    "ven-mix-7": { "name": "Synthetic Seven" },
+    "ven-mix-8": { "name": "Synthetic Eight" },
+    "ven-mix-9": { "name": "Synthetic Nine" },
+    "ven-mix-10": { "name": "Synthetic Ten" },
+    "ven-mix-11": { "name": "Synthetic Eleven" },
+    "ven-mix-12": { "name": "Synthetic Twelve" }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "sessions": {
+    "20261012": {
+      "date": "2026-10-12",
+      "name": "Synthetic Session",
+      "status": "approved",
+      "approvedBy": "Synthetic Reviewer",
+      "approvedAt": 1791806400000,
+      "submissions": {
+        "s_test": {
+          "taster": "Synthetic Assessor",
+          "timestamp": 1791806300000,
+          "vendors": [
+            {
+              "vendorId": "v_test",
+              "vendorName": "Synthetic Vendor",
+              "businessName": "Synthetic Business",
+              "categoryName": "Synthetic Category",
+              "att": "Absent",
+              "assessmentVersion": 2,
+              "criteriaSnapshot": {
+                "taste": true,
+                "aroma": true,
+                "appear": true,
+                "hygiene": true,
+                "environ": true,
+                "storage": true,
+                "safety": true,
+                "attendance": true
+              },
+              "attendance": 0
+            }
+          ],
+          "actions": []
+        }
+      }
+    }
+  },
+  "vendors": {
+    "v_test": {
+      "name": "Synthetic Vendor",
+      "businessName": "Synthetic Business",
+      "categoryId": "c_test",
+      "deleted": false
+    }
+  },
+  "categories": {
+    "c_test": {
+      "name": "Synthetic Category",
+      "deleted": false
+    }
+  },
+  "reviewers": {
+    "r_test": {
+      "name": "Synthetic Reviewer",
+      "deleted": false
+    }
+  }
+}

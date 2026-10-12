@@ -1,0 +1,30 @@
+{
+  "categories": [ "not", "a", "map" ],
+  "reviewers": { "rev-1": "not-an-object" },
+  "sessions": {
+    "sess-array": [ 1, 2, 3 ],
+    "sess-bad-submissions": { "submissions": [ { "vendors": [] } ] },
+    "sess-nested": {
+      "status": 7,
+      "submissions": {
+        "sub-not-object": "string-submission",
+        "sub-sparse": { "vendors": { "0": { "vendorId": "ven-1" }, "2": { "vendorId": "ven-2" } } },
+        "sub-null-vendors": { "vendors": null },
+        "sub-missing-vendors": { "actions": "not-an-array" },
+        "sub-nested": {
+          "timestamp": 1.5,
+          "vendors": [
+            null,
+            [ { "vendorId": "ven-1" } ],
+            "ven-1",
+            { "vendorId": { "nested": "ven-1" }, "att": { "value": 5 }, "assessmentVersion": "2", "criteriaSnapshot": "taste" },
+            { "att": 5, "assessmentVersion": 2, "criteriaSnapshot": { "taste": "yes", "aroma": null, "appear": [], "hygiene": {}, "environ": 1, "storage": true, "safety": true, "attendance": true } },
+            { "vendorId": "", "vendorName": 42, "attendance": 4, "taste": null }
+          ]
+        }
+      }
+    }
+  },
+  "vendors": { "ven-1": { "name": "Synthetic" } },
+  "extraRootThing": true
+}
