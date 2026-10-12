@@ -315,3 +315,17 @@ All three of Sol's tests failed on the earlier draft (Sol's log: `/tmp/savour-m4
 ## Sol integration verification — 12 October 2026
 
 The reviewed Opus bundle was integrated into the complete development repository. Full local suite: 331 passed, one optional fixture skipped. Application build passed. The checkout Edge function passed cached Deno type checking with the existing pinned import configuration. The additive checkout preparation migration was applied only to savour-dev; its filename matches hosted migration history. Backend/Preview deployment and actual browser/provider acceptance remain pending. The original POST /v1/customers result is still unobserved; no provider-specific diagnosis is claimed.
+
+## Sol observed sandbox subscription acceptance — 12 October 2026
+
+The founder approved a dedicated Gmail alias for Bachs sandbox receipts. A fresh disposable workspace completed the real hosted sandbox checkout with Bachs's displayed success test card. The signed inbox recorded five events; all processed with no error: subscription.created, invoice.paid and subscription.updated waited for verified payment; checkout.completed granted a single paid period; collection.succeeded was duplicate. Hosted facts show one current active USD subscription, exactly one USD 2900-minor-unit paid period, no unresolved reviews, and correct Business limits.
+
+The provider customer portal opened and showed an active subscription and paid invoice. SAVOUR's cancellation action was confirmed by a fresh provider subscription read: cancel_at_period_end=true, access remains cancel_scheduled through 12 November 2026. The billing screen clearly shows confirmed cancellation. At 390×844, document width stayed 390 and visible buttons were 44px high. No live account transaction occurred.
+
+An observed UI defect remains under repair: the return page stopped automatic refresh at 60 seconds, before the second cron batch completed. Reload showed the correctly verified paid status. Opus implemented bounded four-minute refresh (5s then15s) and a manual Check again control; six focused integrated tests passed. The local timer/manual-button check, build and deployment are still pending. Renewal, failed-payment, refund/dispute and true separate-connection concurrency acceptance are not complete; NGN recurring remains unverified.
+
+### Final payment-status refresh verification
+
+Sol exercised the actual React component in a temporary local Next.js screen with fake public Supabase configuration and no provider calls. A server-confirmed result after 90 seconds replaced pending state automatically; no stale checking message remained in that section. The second fixture stayed pending: automatic checks stopped at four minutes, Check again appeared, and its real browser click refreshed/restarted checking. Screenshots were saved. The local test screen and server were removed before build/deployment. The six focused return-status tests passed in the complete repository; type checking passed. Lint had flagged Date.now only in the temporary server fixture; canonical lint is re-run after removing it.
+
+Canonical lint and final application build passed after the temporary fixture and its stale generated dev route types were removed. No test route remains in source.
