@@ -31,9 +31,9 @@ Owner authorization, named operator/support hours and secure real-data arrangeme
 | Failed saves | Sustained failures detected; operator route tested | Pending implementation |
 | Authentication abuse / tenant denials | Opaque counters and scoped operator visibility | Pending implementation |
 | Queue / export failures | Age and failure counts; no inspection text in logs | Pending implementation |
-| Billing backlog | Alert assigned operator after 15 minutes; delivery test | Pending implementation |
-| Webhook lag / unresolved payments | Reconcile authoritative provider state; no unverified grant | Existing workers; alert acceptance pending |
-| Restore / rollback | Target restore drill and runbooks reviewed | Local archive rehearsal only; target drill pending |
+| Billing backlog | Alert assigned operator after 15 minutes; delivery test | Read-only on-page detection verified; automatic delivery/assigned operator pending |
+| Webhook lag / unresolved payments | Reconcile authoritative provider state; no unverified grant | Worker/inbox/discovery/review snapshot and guide verified; external alert acceptance pending |
+| Restore / rollback | Target restore drill and runbooks reviewed | Archive rehearsal and operator runbooks prepared; target restore drill pending |
 
 A named support owner, hours/timezone and tested billing/outage escalation route remain founder decisions before live subscriptions. No external messages or schedules are created by this preparation.
 
