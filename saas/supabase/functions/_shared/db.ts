@@ -46,3 +46,17 @@ export function dbErrorCode(e: unknown): string {
   const m = e instanceof Error ? e.message : String(e);
   return /^[a-z_]{3,60}$/.test(m) ? m : "db_error";
 }
+
+/** Bind pre-serialized jsonb as explicit PostgreSQL text, then let ::jsonb cast it server-side.
+ * postgres.js otherwise infers jsonb and JSON.stringify() encodes the JSON text a second time.
+ * Keep the original text so large integers, JSON null, arrays and scalar types remain exact.
+ */
+export function toDriverArgs(args: [ArgType, unknown][], asText: (value: string) => unknown): unknown[] {
+  return args.map(([type, value]) => {
+    if (value === null || value === undefined) return null;
+    if (type !== "jsonb") return value;
+    if (typeof value !== "string") throw new Error("invalid_json_argument");
+    try { JSON.parse(value); } catch { throw new Error("invalid_json_argument"); }
+    return asText(value);
+  });
+}

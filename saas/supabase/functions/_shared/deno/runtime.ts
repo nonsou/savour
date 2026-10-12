@@ -3,7 +3,7 @@
 // never read. Provider API keys and webhook secrets come from Vault through the scoped functions.
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
-import { assertAllowed, callSql, type ArgType, type ScopedDb, type ScopedRole } from "../db.ts";
+import { assertAllowed, callSql, toDriverArgs, type ArgType, type ScopedDb, type ScopedRole } from "../db.ts";
 import { ENV } from "../http.ts";
 import type { UserRpc } from "../owner-core.ts";
 
@@ -27,7 +27,7 @@ export function scopedDb(role: ScopedRole, urlEnv: string): ScopedDb {
   const run = async (fn: string, args: [ArgType, unknown][], setReturning: boolean) => {
     assertAllowed(role, fn);
     // deno-lint-ignore no-explicit-any
-    return await conn.unsafe(callSql(fn, args, setReturning), args.map(([, v]) => (v === null || v === undefined ? null : v)) as any[]);
+    return await conn.unsafe(callSql(fn, args, setReturning), toDriverArgs(args, (value) => conn.typed(value, 25)) as any[]);
   };
   return {
     role,
