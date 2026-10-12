@@ -224,3 +224,12 @@ Planned, not done. No restore has been tested and nothing here claims one has.
 - [ ] Manual check cadence agreed (pending; detection latency equals this cadence)
 - [ ] External alert delivery decided (pending; not in this slice)
 - [ ] Restore drill authorized (pending, RB-BACKUP-01)
+
+
+## Application save and export outcomes
+
+The admin Operations page separately shows best-effort user-session-reported outcome counters. These are unverified and may be inflated or omitted by a signed-in user; database outages and recording timeouts omit events. Compare them with hosting log event `application_outcome` before declaring an incident. The log allowlist contains only server-generated event UUID, static operation/outcome and server time; no request, error, business or inspection fields. `telemetry_recording_failed` indicates failure of the convenience-counter path, not necessarily a failed inspection save.
+
+Operation scope: assessment submissions; session report and analytics PDF/CSV generation; dashboard CSV generation. Success means a response/file was produced, not downloaded; a request failure after a committed assessment is not proof that nothing was saved. Known stale/validation/permission rejections and idempotent replays remain separate from technical failures.
+
+Record operation, counters and database capture time; compare hosting logs around that time, inspect the user's visible result, then escalate to the named operator (still unassigned). Do not alter approved evidence or blindly repeat a write. The proposed signal is failures in two adjacent UTC hour buckets within the current partial plus preceding23 hours; it does not prove continuous downtime. Missing reports mean not measured. External alert routing/delivery remains pending; this does not complete OPS01.

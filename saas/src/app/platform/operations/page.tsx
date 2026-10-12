@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { SimpleTopbar } from "@/components/topbar";
+import { assessApp, unavailableApp, type AppEvaluation } from "@/lib/application-outcomes";
 import { requireUser } from "@/lib/auth";
 import {
   ACTIONS, actionAnchor, assess, CODES, DETECTION_NOTICE, errorEvaluation, INCIDENT_STEPS, MODES, NOT_INSTRUMENTED, OWNERSHIP, SCOPE_NOTICE,
   STATUS_LABELS, type ActionId, type ConnectionFacts, type Evaluation, type Finding,
 } from "@/lib/operations";
+import { ApplicationOutcomes } from "./application-outcomes";
 
-export const metadata = { title: "Billing operations — SAVOUR" };
+export const metadata = { title: "Operations — SAVOUR" };
 // Every load reads the database; nothing is cached or prerendered (valid because cacheComponents is off).
 export const dynamic = "force-dynamic";
 
@@ -22,13 +24,19 @@ export default async function OperationsPage() {
   const { data, error } = await supabase.rpc("platform_operations_snapshot");
   if (error?.message === "forbidden") notFound();
   if (error?.message === "not_authenticated") redirect(`/login?next=${encodeURIComponent(PATH)}`);
+  // Read only after the billing call has confirmed the caller is a live admin; the same actor check
+  // runs again in the database, so a revocation in between is also "not found".
+  const app = await supabase.rpc("platform_application_outcomes");
+  if (app.error?.message === "forbidden") notFound();
+  if (app.error?.message === "not_authenticated") redirect(`/login?next=${encodeURIComponent(PATH)}`);
+  const appEv: AppEvaluation = app.error ? unavailableApp() : assessApp(app.data);
   const ev: Evaluation = error ? errorEvaluation("SNAPSHOT_UNAVAILABLE") : assess(data);
   const s = ev.snapshot;
   return (
     <>
       <SimpleTopbar />
       <main className="container stack">
-        <h1>Billing operations (read-only)</h1>
+        <h1>Operations (read-only)</h1>
         <section className="card stack" aria-labelledby="scope-h">
           <h2 id="scope-h">What this page does and does not cover</h2>
           <p><strong>{DETECTION_NOTICE}</strong></p>
@@ -63,6 +71,8 @@ export default async function OperationsPage() {
             </section>
           </>
         )}
+
+        <ApplicationOutcomes ev={appEv} />
 
         <section className="card stack" aria-labelledby="guide-h">
           <h2 id="guide-h">What to do</h2>

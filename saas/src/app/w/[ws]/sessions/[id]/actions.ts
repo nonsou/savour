@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { classifyRejection } from "@/lib/application-outcomes";
 import { requireUser } from "@/lib/auth";
 import { friendlyError, type ActionState } from "@/lib/errors";
+import { observed, sessionRecorder } from "@/lib/outcome-telemetry";
 import type { Answers, Outcome } from "@/lib/scoring";
 import { siteOrigin } from "@/lib/urls";
 
@@ -162,15 +164,20 @@ export interface SubmitPayload {
 
 export type SubmitResult = { ok: true; version: number; replayed: boolean } | { ok: false; error: string; code: string };
 
+// M5 OPS02: one outcome per save (see lib/outcome-telemetry). The sign-in redirect stays outside the
+// observation; only the op and outcome are recorded, never the payload, notes or error.
 export async function submitAssessment(p: SubmitPayload): Promise<SubmitResult> {
   const { supabase } = await requireUser();
-  const { data, error } = await supabase.rpc("submit_assessment", {
-    p_session: p.session, p_subject: p.subject, p_assessor: p.assessor, p_observed: p.observed,
-    p_answers: p.answers, p_notes: p.notes, p_expected_version: p.expectedVersion,
-    p_idempotency_key: p.idempotencyKey, p_reason: p.reason,
+  return observed<SubmitResult>("assessment_save", async (ctx) => {
+    ctx.record = sessionRecorder(supabase);
+    const { data, error } = await supabase.rpc("submit_assessment", {
+      p_session: p.session, p_subject: p.subject, p_assessor: p.assessor, p_observed: p.observed,
+      p_answers: p.answers, p_notes: p.notes, p_expected_version: p.expectedVersion,
+      p_idempotency_key: p.idempotencyKey, p_reason: p.reason,
+    });
+    if (error) return { outcome: classifyRejection(error.message), value: { ok: false, error: friendlyError(error), code: error.message } };
+    revalidatePath(`/w/${p.ws}/sessions/${p.session}`);
+    const r = data as { version: number; replayed: boolean };
+    return { outcome: r.replayed ? "replayed" : "success", value: { ok: true, version: r.version, replayed: r.replayed } };
   });
-  if (error) return { ok: false, error: friendlyError(error), code: error.message };
-  revalidatePath(`/w/${p.ws}/sessions/${p.session}`);
-  const r = data as { version: number; replayed: boolean };
-  return { ok: true, version: r.version, replayed: r.replayed };
 }

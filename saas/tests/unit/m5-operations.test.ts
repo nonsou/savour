@@ -234,9 +234,9 @@ describe("operations page", () => {
     const src = readFileSync(join(import.meta.dirname, "..", "..", "src", "app", "platform", "operations", "page.tsx"), "utf8");
     expect(src).not.toMatch(/"use client"|"use server"|setInterval|setTimeout|useEffect|<form|method="post"|router\.refresh/);
   });
-  it("calls only the read RPC with no arguments", async () => {
+  it("calls only the read RPCs with no arguments (M5 OPS02 adds the application outcome snapshot, read second)", async () => {
     await render({ data: snapshot(), error: null });
-    expect(state.rpc.mock.calls).toEqual([["platform_operations_snapshot"]]);
+    expect(state.rpc.mock.calls).toEqual([["platform_operations_snapshot"], ["platform_application_outcomes"]]);
   });
   it("denied non-admin: not found; missing session: login", async () => {
     await expect(render({ data: null, error: { message: "forbidden" } })).rejects.toThrow("NOT_FOUND");

@@ -337,10 +337,10 @@ export const SCOPE_NOTICE =
   "This covers bounded billing worker and queue diagnostics only. A within-thresholds result does not mean the platform is healthy or that there are no incidents.";
 
 export const NOT_INSTRUMENTED: string[] = [
-  "Failed saves (application write errors)",
+  "Saves other than inspection assessment submissions (every other write action and its errors)",
   "Authentication abuse (sign-in attempts, brute force)",
-  "Authorization denials (forbidden/RPC denials, including denials of this page)",
-  "Exports (PDF/CSV export failures or volume)",
+  "Authorization denials (forbidden/RPC denials, including denials of this page), except as rejected saves and exports in the user-reported counts",
+  "Export delivery or download, and saves or exports attempted while signed out (the user-reported counts cover only generation outcomes for signed-in sessions)",
   "Application queues other than billing (inbox, due reminders)",
   "Housekeeping worker runs (not tied to a connection)",
   "Edge function errors, provider API latency and HTTP failures",
