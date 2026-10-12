@@ -637,3 +637,10 @@ A real two-connection Postgres test on the disposable corrected intent proved co
 Actual full refund completed: refund.paid was processed as period_revoked. The exact original USD paid period became full-refunded and revoked; access returned to the remaining free trial and trial limits. Earlier refund.failed preserved its separate paid period. No real money moved.
 
 After the open-status repair, the old declined event completed with review:payment_not_subscription, exposing the actual pre-subscription shape (open purchase, null subscription and invoice). The worker-only follow-up routes precisely this shape through the verified checkout path, never through a paid grant. New hosted decline-to-success acceptance is pending; the earlier review is retained.
+
+
+## Sol final decline-to-success acceptance
+
+Development worker deploy succeeded for commit 0d5a9d7. The same fresh hosted checkout first rejected the displayed fake decline card. Its signed collection.failed event completed as pre_subscription:checkout_unchanged, with no error, no paid period, no subscription, no grace and no new review. The same checkout then accepted the displayed fake success card. Full provider facts produced a subscription_create payment, one current USD subscription, exactly one USD 2900-minor-unit paid period, Business plan limits and zero unresolved workspace reviews. All six signed events completed without errors: invoice/subscription events waited for payment verification, checkout.completed granted, and collection.succeeded was duplicate. The return page confirmed payment automatically without a manual reload.
+
+Hosted proofs saved locally: /tmp/savour-m4-fresh-decline-confirmed.png; /tmp/savour-m4-full-refund-confirmed.png; /tmp/savour-m4-contact-bound-confirmed.png. Canonical PRD and SOP in Notion are updated. No production merge/change, real-money payment or Firebase modification occurred. Renewal/failure and dispute provider simulations, NGN recurring enablement and broader races remain pending; Milestone 4 is not complete.
