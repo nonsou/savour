@@ -4,7 +4,7 @@ import { BachsClient, ConfigError, type TransportRequest } from "../../supabase/
 import { DtoError } from "../../supabase/functions/_shared/bachs-dto.ts";
 import { classifyCheckoutCreation } from "../../supabase/functions/_shared/worker-core.ts";
 
-const KEY = "sk_sandbox_TESTONLYunitkey00000001";
+const KEY = "sk_sandbox_TESTONLY-unitkey00000001";
 const mk = (status: number, body: unknown, seen: TransportRequest[] = []) =>
   new BachsClient({ apiKey: KEY, baseUrl: "https://sandbox-api.bachs.io" }, async (req) => { seen.push(req); return { status, bodyText: JSON.stringify(body) }; });
 
@@ -12,6 +12,9 @@ describe("Bachs sandbox adapter", () => {
   it("refuses live keys, malformed keys and any non-sandbox base URL", () => {
     const t = async () => ({ status: 200, bodyText: "{}" });
     expect(() => new BachsClient({ apiKey: "sk_live_TESTONLYunitkey00000001", baseUrl: "https://sandbox-api.bachs.io" }, t)).toThrow(ConfigError);
+    for (const suffix of ["TESTONLY.unitkey00000001", "TESTONLY unitkey00000001", "TESTONLY–unitkey00000001"]) {
+      expect(() => new BachsClient({ apiKey: `sk_sandbox_${suffix}`, baseUrl: "https://sandbox-api.bachs.io" }, t)).toThrow(ConfigError);
+    }
     expect(() => new BachsClient({ apiKey: "sk_sandbox_short", baseUrl: "https://sandbox-api.bachs.io" }, t)).toThrow(ConfigError);
     expect(() => new BachsClient({ apiKey: KEY, baseUrl: "https://api.bachs.io" }, t)).toThrow(ConfigError);
     expect(() => new BachsClient({ apiKey: KEY, baseUrl: "https://sandbox-api.bachs.io.evil.test" }, t)).toThrow(ConfigError);

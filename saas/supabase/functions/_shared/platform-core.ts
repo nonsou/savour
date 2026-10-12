@@ -23,7 +23,7 @@ export async function storeSecret(deps: { userRpc: UserRpc; log: (l: string) => 
       || typeof secret !== "string" || secret.length < 16 || secret.length > 512 || !Number.isInteger(expectedVersion)) {
     return { status: 400, body: { error: "invalid_request" } };
   }
-  if (kind === "api_key" && !/^sk_sandbox_[A-Za-z0-9_]{16,200}$/.test(secret)) return { status: 400, body: { error: "invalid_credential_format" } };
+  if (kind === "api_key" && !/^sk_sandbox_[A-Za-z0-9_-]{16,200}$/.test(secret)) return { status: 400, body: { error: "invalid_credential_format" } };
   const { data, error } = await deps.userRpc("platform_store_secret", { p_conn: connectionId, p_kind: kind, p_secret: secret, p_expected_version: expectedVersion });
   if (error) {
     const code = /^[a-z_]{3,60}$/.test(error.message) ? error.message : "request_failed";

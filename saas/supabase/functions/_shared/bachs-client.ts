@@ -7,7 +7,7 @@ import {
 } from "./bachs-dto.ts";
 
 export const BACHS_SANDBOX_BASE_URL = "https://sandbox-api.bachs.io";
-const SANDBOX_KEY = /^sk_sandbox_[A-Za-z0-9_]{16,200}$/;
+const SANDBOX_KEY = /^sk_sandbox_[A-Za-z0-9_-]{16,200}$/;
 
 export interface TransportRequest { method: "GET" | "POST" | "DELETE"; url: string; headers: Record<string, string>; body?: string; timeoutMs: number }
 export interface TransportResponse { status: number; bodyText: string }

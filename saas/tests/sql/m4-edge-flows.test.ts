@@ -18,7 +18,7 @@ const root = join(import.meta.dirname, "..", "..");
 const OWNER = "eeeeeeee-0000-4000-8000-000000004501";
 const ADMIN = "eeeeeeee-0000-4000-8000-000000004502";
 const STRANGER = "eeeeeeee-0000-4000-8000-000000004503";
-const KEY = "sk_sandbox_TESTONLYflowkey000000001";
+const KEY = "sk_sandbox_TESTONLY-flowkey000000001";
 const WHSEC = "whsec_TESTONLYflowsecret00000001";
 const ORG = "acct_flow_test";
 const logs: string[] = [];
@@ -133,6 +133,9 @@ beforeAll(async () => {
 afterAll(async () => { await pg.close(); });
 
 describe("M4 Edge flows over the real SQL (mock provider transport)", () => {
+  it("keeps the provider registry immutable after the key-format migration", async () => {
+    await expect(pg.query("update platform.providers set key_pattern = '.*' where code = 'bachs'")).rejects.toThrow("immutable_record");
+  });
   it("platform admin: identity, aal2, write-only secrets and a read-only connection test that configures the matching price", async () => {
     const admin2 = userRpc(ADMIN, "aal2");
     expect((await userRpc(OWNER, "aal2")("platform_overview", {})).error?.message).toBe("forbidden");

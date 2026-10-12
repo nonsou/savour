@@ -2,7 +2,7 @@
 // secrets, bearer tokens, URLs (portal and checkout URLs carry session credentials) and email
 // addresses are replaced. Logs should carry codes and IDs only; this is the last line of defence.
 const PATTERNS: [RegExp, string][] = [
-  [/\bsk_(?:live|sandbox|test)_[A-Za-z0-9_]+/g, "[redacted-key]"],
+  [/\bsk_(?:live|sandbox|test)_[A-Za-z0-9_-]+/g, "[redacted-key]"],
   [/\bwhsec_[A-Za-z0-9_]+/g, "[redacted-secret]"],
   [/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]"],
   [/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+/g, "[redacted-jwt]"],
