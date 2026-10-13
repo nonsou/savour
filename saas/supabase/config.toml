@@ -444,3 +444,8 @@ import_map = "./functions/deno.json"
 [functions.platform-provider-test]
 verify_jwt = true
 import_map = "./functions/deno.json"
+
+# Milestone 5 owner-only development mailer: custom bounded trigger bearer, no user payload.
+[functions.operations-mailer]
+verify_jwt = false
+import_map = "./functions/deno.json"

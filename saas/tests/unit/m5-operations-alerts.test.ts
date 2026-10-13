@@ -104,10 +104,10 @@ const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/'/g, "&#x27;").repl
 const always = (html: string) => {
   expect(html).toContain("<h1>Operational alerts</h1>");
   for (const p of PROVENANCE) expect(html).toContain(esc(p));
-  // The owner chose email plus this page; automatic alert email is not connected, so nothing claims delivery. Only a
-  // manual verification test exists (Stage 1).
-  expect(html).toContain("Automatic alert email is not connected");
-  expect(html).toContain("no warning has been emailed and none is promised");
+  // The owner chose email plus this page; automatic email is development only and switchable, and nothing claims
+  // delivery. The manual verification test is separate.
+  expect(html).toContain("Automatic email is development only");
+  expect(html).toContain("Accepted by the email service is not confirmed delivery and no email is promised");
   expect(html).toContain("a manual test email to the owner address");
   expect(html).toContain("Support hours: awaiting the owner&#x27;s choice");
   expect(html).toContain("<details><summary>How these checks work and what they cannot tell you</summary>");
@@ -129,7 +129,7 @@ describe("alerts page", () => {
   });
   it("calls only the two read RPCs, with no arguments (a page load never reserves or sends)", async () => {
     await render({ data: view(), error: null });
-    expect(state.rpc.mock.calls).toEqual([["platform_operations_alerts"], ["platform_alert_email_verifications"]]);
+    expect(state.rpc.mock.calls).toEqual([["platform_operations_alerts"], ["platform_alert_email_verifications"], ["platform_operations_mailer"]]);
   });
   it("non-admin: not found; missing session: login", async () => {
     await expect(render({ data: null, error: { message: "forbidden" } })).rejects.toThrow("NOT_FOUND");

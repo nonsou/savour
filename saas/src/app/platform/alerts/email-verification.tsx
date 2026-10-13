@@ -10,7 +10,7 @@ export function EmailVerification({ view, configured }: { view: VerificationsVie
     <section className="card stack" aria-labelledby="verify-h">
       <h2 id="verify-h">Email verification (manual test)</h2>
       <p className="small">This sends one fixed test email by hand to check that the email service works. It contains no alert or customer information.
-        It is <strong>not</strong> alert delivery: warnings on this page are still never emailed automatically.</p>
+        It is <strong>not</strong> alert delivery; automatic email is the separate section above.</p>
       <p className={configured ? "notice ok" : "notice sample"} role="status">
         {configured ? "Email key: present on this server (Preview deployment). The key is never shown."
           : "Email key: not available on this deployment (sending works only on a Preview deployment with the key set). Nothing can be sent here."}

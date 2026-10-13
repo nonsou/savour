@@ -7,6 +7,8 @@ import {
   ALERT_TEXT, automaticChecksConfirmed, CHECK_FAILING, DETAILS, FRESHNESS_LABELS, GUIDE_APP, GUIDE_BILLING, JOB_LABELS, NO_ALERTS_ACTIVE,
   opLabel, PROVENANCE, SOURCE_LABELS, SUSTAINED_FLAG, validateAlerts, type AlertRow, type AlertsView, type Source, type SourceStatus,
 } from "@/lib/operations-alerts";
+import { validateMailer } from "@/lib/operations-mailer";
+import { AutomaticEmail } from "./automatic-email";
 import { EmailVerification } from "./email-verification";
 
 export const metadata = { title: "Operational alerts — SAVOUR" };
@@ -18,16 +20,19 @@ const PATH = "/platform/alerts";
 
 // Read-only founder view of the internal alert state. Access is the same database fact as /platform (a live
 // platform.admins row); everyone else gets "not found". Nothing here evaluates, acknowledges or changes alerts; a
-// page load never sends anything. The only write is the manual verification email (a POST server action, see
-// ./actions.ts). Unavailable or invalid data is an error state, never "no alerts".
+// page load never sends anything. The only writes are POST server actions: the manual verification email
+// (./actions.ts) and switching automatic email on or off (./mailer-actions.ts). Unavailable or invalid data is an
+// error state, never "no alerts".
 export default async function AlertsPage() {
   const { supabase } = await requireUser(PATH);
-  const [{ data, error }, emails] = await Promise.all([supabase.rpc("platform_operations_alerts"), supabase.rpc("platform_alert_email_verifications")]);
+  const [{ data, error }, emails, mailer] = await Promise.all([supabase.rpc("platform_operations_alerts"),
+    supabase.rpc("platform_alert_email_verifications"), supabase.rpc("platform_operations_mailer")]);
   if (error?.message === "forbidden") notFound();
   if (error?.message === "not_authenticated") redirect(`/login?next=${encodeURIComponent(PATH)}`);
   const checked = error ? null : validateAlerts(data);
   const v = checked?.ok ? checked.view : null;
   const verifications = emails.error ? null : validateVerifications(emails.data);
+  const automatic = mailer.error ? null : validateMailer(mailer.data);
   return (
     <>
       <SimpleTopbar />
@@ -48,6 +53,8 @@ export default async function AlertsPage() {
 
         {v && <Alerts v={v} />}
 
+        <AutomaticEmail view={automatic} />
+
         <EmailVerification view={verifications} configured={sendingConfigured(process.env)} />
 
         <section className="card stack" aria-labelledby="guide-h">
@@ -60,7 +67,7 @@ export default async function AlertsPage() {
             <h3 id="guide-app">Save and export warnings</h3>
             <ol className="small">{GUIDE_APP.map((x) => <li key={x}>{x}</li>)}</ol>
           </section>
-          <p className="small muted">No warning is escalated automatically. The only thing this page can send is the manual verification email to the owner.</p>
+          <p className="small muted">No warning is escalated to a person automatically. Email goes only to the owner test address: automatically (development only, when switched on above) or by the manual verification test.</p>
         </section>
 
         <details>

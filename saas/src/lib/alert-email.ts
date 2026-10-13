@@ -3,14 +3,14 @@
 // * The message is fixed in SQL (private.alert_email_verification_message) and repeated here; the server action
 //   sends only when the reservation matches these constants exactly, so neither side can change it alone.
 // * Outcomes are what the calling admin session saw: "accepted" means Resend accepted the request, never delivered.
-// * Automatic alert email is NOT built: it needs a separately reviewed worker and its own key.
+// * Automatic email is separate: the operations-mailer worker with its own key and quota (see src/lib/operations-mailer.ts).
 
 export const RESEND_URL = "https://api.resend.com/emails";
 export const VERIFICATION_FROM = "onboarding@resend.dev";
 export const VERIFICATION_TO = "nonsou@gmail.com";
 export const VERIFICATION_SUBJECT = "SAVOUR email verification test";
 export const VERIFICATION_TEXT = "This is a SAVOUR email verification test, requested by hand from the platform admin page. "
-  + "It contains no alert and no customer information. Automatic alert emails are not connected. No action is needed.";
+  + "It contains no alert and no customer information. Automatic email status is shown on the platform alerts page. No action is needed.";
 export const DAILY_LIMIT = 1;
 export const TIMEOUT_MS = 10_000;
 export const MAX_RESPONSE_BYTES = 4096;
