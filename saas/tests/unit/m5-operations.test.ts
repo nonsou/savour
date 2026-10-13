@@ -306,7 +306,7 @@ describe("operations page", () => {
   it("within thresholds is worded as billing-only", async () => {
     const html = await render({ data: snapshot(), error: null });
     const status = html.slice(html.indexOf('role="status"'), html.indexOf("</section>", html.indexOf('role="status"')));
-    expect(status).toContain('<h2 id="status-h">Billing checks within thresholds</h2>');
+    expect(status).toMatch(new RegExp('<h2 id="status-h"[^>]*>Billing checks within thresholds</h2>'));
     expect(status).not.toMatch(/healthy|incident|all systems/i);
     expect(html).toContain("does not mean the platform is healthy or that there are no incidents");
   });

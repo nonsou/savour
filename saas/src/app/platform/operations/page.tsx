@@ -46,7 +46,7 @@ export default async function OperationsPage() {
         </section>
 
         <section className={`notice ${ev.status === "within_thresholds" ? "ok" : "sample"}`} role="status" aria-labelledby="status-h">
-          <h2 id="status-h">{STATUS_LABELS[ev.status]}</h2>
+          <h2 id="status-h" style={{ color: "inherit" }}>{STATUS_LABELS[ev.status]}</h2>
           {s ? (
             <p>Captured {utc(s.observed_at)} by the database clock. Refresh to read again.</p>
           ) : (

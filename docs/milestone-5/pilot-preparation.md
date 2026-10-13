@@ -28,11 +28,11 @@ Owner authorization, named operator/support hours and secure real-data arrangeme
 
 | Signal | Required check | Current status |
 |---|---|---|
-| Failed saves | Sustained failures detected; operator route tested | Inspection assessment request outcomes implemented; coarse, unverified session counters and private server logs; hosted permission checks and sample export/log-to-counter flow verified; new390px check pending. Other saves and alert delivery pending |
+| Failed saves | Sustained failures detected; operator route tested | Inspection assessment request outcomes implemented; coarse, unverified session counters and private server logs; hosted permission checks and sample export/log-to-counter flow verified; authenticated hosted390x844 layout/navigation verified. Other saves and alert delivery pending |
 | Authentication abuse / tenant denials | Opaque counters and scoped operator visibility | Pending implementation |
-| Queue / export failures | Age and failure counts; no inspection text in logs | Report/analytics PDF and CSV plus dashboard CSV generation instrumented; hosted permission checks and sample export/log-to-counter flow verified; new390px check pending. Download completion, other queues and alert delivery pending |
-| Billing backlog | Alert assigned operator after 15 minutes; delivery test | Read-only on-page detection verified; internal five-minute check/inbox foundation enabled; hosted scheduled-run acceptance underway; email/support ownership pending |
-| Webhook lag / unresolved payments | Reconcile authoritative provider state; no unverified grant | Worker/inbox/discovery/review snapshot and guide verified; internal alert foundation in development verification; email acceptance pending |
+| Queue / export failures | Age and failure counts; no inspection text in logs | Report/analytics PDF and CSV plus dashboard CSV generation instrumented; hosted permission checks and sample export/log-to-counter flow verified; authenticated hosted390x844 layout/navigation verified. Download completion, other queues and alert delivery pending |
+| Billing backlog | Alert assigned operator after 15 minutes; delivery test | Read-only on-page detection verified; internal five-minute check/inbox verified with scheduled artificial warning, deduplication and cleanup; email/support hours pending |
+| Webhook lag / unresolved payments | Reconcile authoritative provider state; no unverified grant | Worker/inbox/discovery/review snapshot and guide verified; internal scheduled alerts verified; email acceptance pending |
 | Restore / rollback | Target restore drill and runbooks reviewed | Archive rehearsal and operator runbooks prepared; target restore drill pending |
 
 A named support owner, hours/timezone and tested billing/outage escalation route remain founder decisions before live subscriptions. No external messages or schedules are created by this preparation.

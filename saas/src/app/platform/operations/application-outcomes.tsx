@@ -24,7 +24,7 @@ export function ApplicationOutcomes({ ev }: { ev: AppEvaluation }) {
       <p><strong>{APP_PROVENANCE}</strong></p>
 
       <div className={`notice ${ok ? "ok" : "sample"}`} role="status" aria-labelledby="app-status-h">
-        <h3 id="app-status-h">{APP_STATUS_LABELS[ev.status]}</h3>
+        <h3 id="app-status-h" style={{ color: "inherit" }}>{APP_STATUS_LABELS[ev.status]}</h3>
         {s ? (
           <p>Captured {utc(s.observed_at)} by the database clock. Window: {hour(s.window_start)} to now.</p>
         ) : (

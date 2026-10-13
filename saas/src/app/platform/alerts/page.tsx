@@ -30,13 +30,13 @@ export default async function AlertsPage() {
       <main className="container stack">
         <h1>Operational alerts</h1>
         <section className="notice sample stack" aria-labelledby="prov-h">
-          <h2 id="prov-h">Who sees this and what it does not do</h2>
+          <h2 id="prov-h" style={{ color: "inherit" }}>Who sees this and what it does not do</h2>
           <ul className="small">{PROVENANCE.map((x) => <li key={x}>{x}</li>)}</ul>
         </section>
 
         {v ? <Status v={v} /> : (
           <section className="notice error" role="status" aria-labelledby="status-h">
-            <h2 id="status-h">{error ? "Alerts could not be read" : "Alert data unusable"}</h2>
+            <h2 id="status-h" style={{ color: "inherit" }}>{error ? "Alerts could not be read" : "Alert data unusable"}</h2>
             <p>{error ? "Nothing below is current. Do not read this as no warnings." : "The alert data did not match the expected shape, so none of it is shown. Do not read this as no warnings."}</p>
             <p><a className="btn" href={PATH}>Retry</a></p>
           </section>
@@ -79,7 +79,7 @@ function Status({ v }: { v: AlertsView }) {
   const confirmed = automaticChecksConfirmed(v);
   return (
     <section className={h.cron_freshness === "fresh" ? "notice stack" : "notice sample stack"} role="status" aria-labelledby="status-h">
-      <h2 id="status-h">{FRESHNESS_LABELS[h.cron_freshness]}</h2>
+      <h2 id="status-h" style={{ color: "inherit" }}>{FRESHNESS_LABELS[h.cron_freshness]}</h2>
       <p>{confirmed
         ? "Automatic checks: the schedule entry is active and the latest scheduled run read both sources in the last 10 minutes. It still sends nothing."
         : "Automatic checks are not confirmed right now, so the warnings below may be out of date."}</p>

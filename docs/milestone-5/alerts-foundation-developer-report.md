@@ -162,3 +162,31 @@ A real contention probe attempted two concurrent Management API calls: the advis
 A separate savour-operations-alerts job was enabled in savour-dev at */5 * * * *, without modifying any of the four existing billing jobs. The owner selected email+admin inbox; only the internal check/inbox is active. One newly created disposable auth UUID supplies an artificial assessment_save failed counter for the scheduled delivery check. It is a QA counter, not evidence of a real failed save or an email send. Scheduled run/alert evidence and cleanup will be recorded afterward.
 
 The later warning-copy correction passed all45 affected unit checks. The complete772-test suite and guarded local build precede that wording-only change; the hosted Preview will build final source. No earlier migration, FirebaseMVP or existingproviderconfiguration changed.
+
+
+## Protected Preview, scheduled QA and cleanup verified
+
+Application commit53325c798d5bfc0a0f55a728aeba02d4e1d78645 is hosted by READY deploymentdpl_39RBu27VYnSY4iRS8XT4QS3Rxxqa / https://savour-df2vea7x6-nonsous-projects.vercel.app, targetPreview. Team/project/exactcommit were verified before repointing the protected development alias. Vercel Authentication, all_except_custom_domains protection and production placeholderdpl_GsAftswtQAZtJ2Y5kdiL5Ff8iLgx remain unchanged. Anonymous app HEAD redirected tologin307 with private,no-cache,no-store cache control; no browser cookies were extracted. Authenticated response headers were not separately inspected.
+
+Real scheduled runs at18:25 and18:30UTC on13October2026 read both sources and created/updated one artificial assessment_save warning. It remained one row and one episode across subsequent scheduled runs. Two additional trusted manual checks in a rolled-back transaction also retained one episode. This is a synthetic-counter delivery test, not evidence that a real assessment save failed. Source labels remain unverified and prompt hosting-log verification. The owner opened the hosted inbox atAAL1, saw the scheduled state and warning, used its operator-guide link, and verified Refresh plus native details expansion/collapse. Desktop controls measured44px.
+
+The connector cleanup returned expired request state and did not execute; a read-only recheck confirmed the fixture remained. SupabaseCLI cleanup used --linked with explicit developmentprojectref and a guarded file that refuses deletion if the created user acquired any email/phone/sign-in. The synthetic authUUID and its own counter were removed; hosted checks confirm both counts0. The real18:50UTC scheduled run marked the retained QA warning no longer reported. The19:00UTC run succeeded with0active warnings. This absence is not a platform health claim; the historical QA warning is retained. No business record, real user, provider setting or billing job was changed.
+
+### Responsive checks
+
+Native viewport override remains ineffective. Sol used a temporary loopback-only static fixture with the actual rendered page components and globals.css, mock authentication/RPC inputs only and synthetic records. A native390x844 iframe supplied the real child layout viewport. Alert document: clientWidth390=scrollWidth390; buttons/links44px; details summary48px, with no overflow when expanded. Operations document: width390=scrollWidth390; controls minimum44px; table regions324px wide, with internal content775/837px wide. ArrowRight moved the outcome table scrollLeft40; expanded details still did not overflow. Both render-fixture checks passed. This is rendered-layout evidence, not a real device or authenticated hosted mobile navigation test; live hosted account permissions were independently verified.
+
+Temporary fixtures/server were isolated outside the repository and are removed/stopped after capture. Screenshots: /tmp/savour-m5-alerts-mobile-layout.jpg and /tmp/savour-m5-operations-mobile-layout.jpg. No test scaffolding was committed or shipped. The previously pending responsive layout checks are fulfilled at this rendered-fixture level.
+
+### Remaining gates
+
+Email delivery is not installed, implemented or tested; ResendFree selection/account connection and support hours remain pending owner answers. No external alert/message or new spending occurred. No external uptime detector exists: database/scheduler outage detection relies on a person reading stale state. Hosted overlapping lock contention remains unverified; source busy-path simulation and clock-order tests passed. Broader auth/action telemetry, live-device acceptance, real restore/migration/pilot partners and deferred Bachs lifecycle/NGN/Paystack/Stripe remain separate gates. Neither OPS01 nor Milestones4/5 are complete.
+
+
+## Final authenticated hosted mobile and notice-contrast verification
+
+A final native viewport retry succeeded after the live Preview was displayed. Authenticated alerts and fully loaded operations pages were tested at390x844: document width390 and scrollWidth390; alert controls minimum44px. Billing/outcome table regions were324px wide with775/837px internal content; ArrowRight scrolled the outcomes region40px. Navigation to Operations and back to Operational alerts passed. Default viewport was restored. Screenshot /tmp/savour-m5-alerts-live-mobile.jpg records the actual hosted mobile state. This completes the previously pending hosted390px layout/navigation check; synthetic-render fixture evidence remains supplementary.
+
+Sol detected low contrast in notice headings (cream text on lavender background). Five headings within the new operations screens now inherit their notice container's text color. Two existing presentation assertions now accept extra heading attributes while requiring the same ID/text; no security or data assertion was changed. All186 affected UI tests passed after that fix; typecheck and lint passed. The broad772-test suite preceded this presentation-only change. A fresh protected Preview build will compile the final styled source before the alias is updated.
+
+Final hosted integrity check still shows25 approved revisions with fingerprintbb58536f3bb01def94a69e24898d1f74 and0remaining synthetic test users. Exactly the four original billing jobs retain their schedules, plus the separately enabled five-minute alert checker. Temporary synthetic mobile HTML/server/test files were removed; proof screenshots remain available.

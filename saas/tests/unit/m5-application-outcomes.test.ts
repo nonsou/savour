@@ -474,7 +474,7 @@ describe("operations page: application outcomes section", () => {
     expect(s).toMatch(/<div class="table-wrap" role="region" aria-label="Reported outcomes by operation, last 24 hours" tabindex="0">/);
     expect(s).toContain('<a class="btn" href="/platform/operations">Refresh</a>');
     expect(s).not.toMatch(/href="#|<form|<button|method="post"/);
-    expect(html).toContain('<h2 id="status-h">Not measured</h2>'); // billing section still rendered on its own
+    expect(html).toMatch(new RegExp('<h2 id="status-h"[^>]*>Not measured</h2>')); // billing section still rendered on its own
   });
   it("keeps provenance and the no-health notice visible; detailed limits, the rule and storage sit in a native details element", async () => {
     const s = section(await render({ data: billing(), error: null }, { data: busy, error: null }));
