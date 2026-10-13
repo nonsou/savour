@@ -190,3 +190,10 @@ A final native viewport retry succeeded after the live Preview was displayed. Au
 Sol detected low contrast in notice headings (cream text on lavender background). Five headings within the new operations screens now inherit their notice container's text color. Two existing presentation assertions now accept extra heading attributes while requiring the same ID/text; no security or data assertion was changed. All186 affected UI tests passed after that fix; typecheck and lint passed. The broad772-test suite preceded this presentation-only change. A fresh protected Preview build will compile the final styled source before the alias is updated.
 
 Final hosted integrity check still shows25 approved revisions with fingerprintbb58536f3bb01def94a69e24898d1f74 and0remaining synthetic test users. Exactly the four original billing jobs retain their schedules, plus the separately enabled five-minute alert checker. Temporary synthetic mobile HTML/server/test files were removed; proof screenshots remain available.
+
+
+## Final Preview and Resend selection
+
+READY protected Preview dpl_A6gczyxZhTjK1w3tY7U7yfiEPmtw serves application commit 3fd5e2dbfc42f95bf4820a3cc3d6c3d35063c5db through https://savour-dev-preview-nonsous-projects.vercel.app/platform/alerts. The exact team, project, commit and Vercel Authentication protection were checked before alias assignment. Production placeholder dpl_GsAftswtQAZtJ2Y5kdiL5Ff8iLgx remains unchanged. Final authenticated browser check showed a fresh scheduled check, zero active warnings and the retained synthetic warning marked no longer reported. Notice heading and section computed colors both equal rgb(27, 18, 6). Final screenshot: /tmp/savour-m5-alerts-preview.jpg.
+
+PRD and SOP Notion pages were appended with evidence, pending gates and the owner's subsequent Resend choice. Resend Free is the selected email service; no paid plan or overages are authorized. CLI inspection confirms a free plan at 0.00 and requires an owned sending domain. Domain/account connection and support hours remain pending. No integration has been provisioned and no email code or delivery is claimed.
