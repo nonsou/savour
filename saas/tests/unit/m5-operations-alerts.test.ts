@@ -104,9 +104,11 @@ const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/'/g, "&#x27;").repl
 const always = (html: string) => {
   expect(html).toContain("<h1>Operational alerts</h1>");
   for (const p of PROVENANCE) expect(html).toContain(esc(p));
-  // The owner chose email plus this page; email is pending a service, so nothing claims delivery.
-  expect(html).toContain("Email is requested but not connected yet");
-  expect(html).toContain("no email has been sent and none is promised");
+  // The owner chose email plus this page; automatic alert email is not connected, so nothing claims delivery. Only a
+  // manual verification test exists (Stage 1).
+  expect(html).toContain("Automatic alert email is not connected");
+  expect(html).toContain("no warning has been emailed and none is promised");
+  expect(html).toContain("a manual test email to the owner address");
   expect(html).toContain("Support hours: awaiting the owner&#x27;s choice");
   expect(html).toContain("<details><summary>How these checks work and what they cannot tell you</summary>");
   for (const d of DETAILS) expect(html).toContain(esc(d));
@@ -125,9 +127,9 @@ describe("alerts page", () => {
     expect(page.fetchCache).toBe("force-no-store");
     expect(src("app", "platform", "alerts", "page.tsx")).not.toMatch(/"use client"|"use server"|setInterval|setTimeout|useEffect|<form|method="post"|router\.refresh/);
   });
-  it("calls only the read RPC, with no arguments", async () => {
+  it("calls only the two read RPCs, with no arguments (a page load never reserves or sends)", async () => {
     await render({ data: view(), error: null });
-    expect(state.rpc.mock.calls).toEqual([["platform_operations_alerts"]]);
+    expect(state.rpc.mock.calls).toEqual([["platform_operations_alerts"], ["platform_alert_email_verifications"]]);
   });
   it("non-admin: not found; missing session: login", async () => {
     await expect(render({ data: null, error: { message: "forbidden" } })).rejects.toThrow("NOT_FOUND");

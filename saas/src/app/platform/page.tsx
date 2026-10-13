@@ -49,7 +49,7 @@ export default async function PlatformPage() {
         {mfa ? (
           <p className="notice ok" role="status">Two-step verification: verified for this session.</p>
         ) : (
-          <section className="card stack">
+          <section className="card stack" id="mfa">
             <h2>Two-step verification required for changes</h2>
             <p>You can read this page now. Storing credentials, testing, enabling, disabling, pricing and changing the default all require a verified authenticator code in this session.</p>
             <MfaPanel initialFactors={(factors?.data?.totp ?? []) as Factor[]} initialAal={aal?.data?.currentLevel ?? null} />

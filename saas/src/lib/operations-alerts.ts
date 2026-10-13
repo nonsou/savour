@@ -262,7 +262,8 @@ export const opLabel = (op: Op) => OP_LABELS[op];
 /** Brief provenance, always visible above everything else. */
 export const PROVENANCE: string[] = [
   "Recipient: the platform owner. Only live platform admins can open this page; no other staff access was added.",
-  "Delivery: the owner chose email plus this admin page. Email is requested but not connected yet (it waits on an email service being set up), so no email has been sent and none is promised. For now a warning is seen only when someone opens this page.",
+  "Delivery: the owner chose email plus this admin page. Automatic alert email is not connected (it needs a separately reviewed sender), so no warning has been emailed and none is promised. For now a warning is seen only when someone opens this page.",
+  "Email verification: a manual test email to the owner address is available below, at most once per UTC day. It is a test only, carries no alert content and does not mean warnings are emailed.",
   "Support hours: awaiting the owner's choice. Nobody is on call and no response time is promised.",
   "These checks run inside the database they watch. If the database, its scheduler or the check itself stops, the only sign is an old scheduled-check time.",
 ];

@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { SimpleTopbar } from "@/components/topbar";
+import { sendingConfigured, validateVerifications } from "@/lib/alert-email";
 import { requireUser } from "@/lib/auth";
 import {
   ALERT_TEXT, automaticChecksConfirmed, CHECK_FAILING, DETAILS, FRESHNESS_LABELS, GUIDE_APP, GUIDE_BILLING, JOB_LABELS, NO_ALERTS_ACTIVE,
   opLabel, PROVENANCE, SOURCE_LABELS, SUSTAINED_FLAG, validateAlerts, type AlertRow, type AlertsView, type Source, type SourceStatus,
 } from "@/lib/operations-alerts";
+import { EmailVerification } from "./email-verification";
 
 export const metadata = { title: "Operational alerts — SAVOUR" };
 // Every load reads the database; nothing is cached or prerendered (valid because cacheComponents is off).
@@ -15,15 +17,17 @@ export const fetchCache = "force-no-store";
 const PATH = "/platform/alerts";
 
 // Read-only founder view of the internal alert state. Access is the same database fact as /platform (a live
-// platform.admins row); everyone else gets "not found". Nothing here evaluates, acknowledges or changes anything:
-// the only interaction is a plain GET reload. Unavailable or invalid data is an error state, never "no alerts".
+// platform.admins row); everyone else gets "not found". Nothing here evaluates, acknowledges or changes alerts; a
+// page load never sends anything. The only write is the manual verification email (a POST server action, see
+// ./actions.ts). Unavailable or invalid data is an error state, never "no alerts".
 export default async function AlertsPage() {
   const { supabase } = await requireUser(PATH);
-  const { data, error } = await supabase.rpc("platform_operations_alerts");
+  const [{ data, error }, emails] = await Promise.all([supabase.rpc("platform_operations_alerts"), supabase.rpc("platform_alert_email_verifications")]);
   if (error?.message === "forbidden") notFound();
   if (error?.message === "not_authenticated") redirect(`/login?next=${encodeURIComponent(PATH)}`);
   const checked = error ? null : validateAlerts(data);
   const v = checked?.ok ? checked.view : null;
+  const verifications = emails.error ? null : validateVerifications(emails.data);
   return (
     <>
       <SimpleTopbar />
@@ -44,6 +48,8 @@ export default async function AlertsPage() {
 
         {v && <Alerts v={v} />}
 
+        <EmailVerification view={verifications} configured={sendingConfigured(process.env)} />
+
         <section className="card stack" aria-labelledby="guide-h">
           <h2 id="guide-h">What to do</h2>
           <section className="stack" aria-labelledby="guide-billing">
@@ -54,7 +60,7 @@ export default async function AlertsPage() {
             <h3 id="guide-app">Save and export warnings</h3>
             <ol className="small">{GUIDE_APP.map((x) => <li key={x}>{x}</li>)}</ol>
           </section>
-          <p className="small muted">No warning is escalated automatically and nothing on this page contacts anyone.</p>
+          <p className="small muted">No warning is escalated automatically. The only thing this page can send is the manual verification email to the owner.</p>
         </section>
 
         <details>
