@@ -31,8 +31,8 @@ Owner authorization, named operator/support hours and secure real-data arrangeme
 | Failed saves | Sustained failures detected; operator route tested | Inspection assessment request outcomes implemented; coarse, unverified session counters and private server logs; hosted permission checks and sample export/log-to-counter flow verified; new390px check pending. Other saves and alert delivery pending |
 | Authentication abuse / tenant denials | Opaque counters and scoped operator visibility | Pending implementation |
 | Queue / export failures | Age and failure counts; no inspection text in logs | Report/analytics PDF and CSV plus dashboard CSV generation instrumented; hosted permission checks and sample export/log-to-counter flow verified; new390px check pending. Download completion, other queues and alert delivery pending |
-| Billing backlog | Alert assigned operator after 15 minutes; delivery test | Read-only on-page detection verified; automatic delivery/assigned operator pending |
-| Webhook lag / unresolved payments | Reconcile authoritative provider state; no unverified grant | Worker/inbox/discovery/review snapshot and guide verified; external alert acceptance pending |
+| Billing backlog | Alert assigned operator after 15 minutes; delivery test | Read-only on-page detection verified; internal five-minute check/inbox foundation enabled; hosted scheduled-run acceptance underway; email/support ownership pending |
+| Webhook lag / unresolved payments | Reconcile authoritative provider state; no unverified grant | Worker/inbox/discovery/review snapshot and guide verified; internal alert foundation in development verification; email acceptance pending |
 | Restore / rollback | Target restore drill and runbooks reviewed | Archive rehearsal and operator runbooks prepared; target restore drill pending |
 
 A named support owner, hours/timezone and tested billing/outage escalation route remain founder decisions before live subscriptions. No external messages or schedules are created by this preparation.
@@ -40,3 +40,6 @@ A named support owner, hours/timezone and tested billing/outage escalation route
 ## Proposed cohort targets from the PRD
 
 5 of 6 approve a real inspection within 14 days; 4 of 6 repeat in their agreed cycle; 3 independent paying businesses with at least one per segment; median report effort reduction 30% against measured baselines; zero tenant exposure, unexplained duplicate charges or lost approved records. These are targets, not measured outcomes.
+
+
+Initial alert recipient: platform owner, confirmed13 October2026. Selected channels: email and admin inbox. Email service selection/account connection and support hours remain pending. See [pilot onboarding checklist](pilot-onboarding-checklist.md); six partner slots remain unassigned and no contact is authorized by these documents.

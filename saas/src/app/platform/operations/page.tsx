@@ -94,7 +94,10 @@ export default async function OperationsPage() {
           <ul className="small">{OWNERSHIP.map((o) => <li key={o.role}>{o.role}: {o.value}</li>)}</ul>
           <p className="small muted">Placeholders stay UNASSIGNED until the owner names them. Outside alerts and customer messages are not set up.</p>
         </section>
-        <p><Link className="btn" href="/platform">Back to platform admin</Link></p>
+        <div className="row">
+          <Link className="btn" href="/platform/alerts">Operational alerts</Link>
+          <Link className="btn" href="/platform">Back to platform admin</Link>
+        </div>
       </main>
     </>
   );

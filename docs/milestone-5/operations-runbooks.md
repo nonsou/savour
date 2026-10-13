@@ -233,3 +233,35 @@ The admin Operations page separately shows best-effort user-session-reported out
 Operation scope: assessment submissions; session report and analytics PDF/CSV generation; dashboard CSV generation. Success means a response/file was produced, not downloaded; a request failure after a committed assessment is not proof that nothing was saved. Known stale/validation/permission rejections and idempotent replays remain separate from technical failures.
 
 Record operation, counters and database capture time; compare hosting logs around that time, inspect the user's visible result, then escalate to the named operator (still unassigned). Do not alter approved evidence or blindly repeat a write. The proposed signal is failures in two adjacent UTC hour buckets within the current partial plus preceding23 hours; it does not prove continuous downtime. Missing reports mean not measured. External alert routing/delivery remains pending; this does not complete OPS01.
+
+## Internal operational alerts (`/platform/alerts`)
+
+Migration `20261013114038_m5_operations_alerts.sql` stores bounded current alert state for two signals only:
+`WEBHOOK_BACKLOG_STALE` / `DISCOVERY_BACKLOG_STALE` (source `billing_authoritative`, same 15-minute rule as above) and
+`APP_FAILURES_REPORTED` (source `app_unverified`, failures reported in the 24-hour window; high when two adjacent UTC
+hours failed). The page links to it from `/platform` and `/platform/operations`. It sends nothing and escalates
+nothing automatically. Recipient: the platform owner, who chose email plus the admin page. Email is requested but
+not connected (pending an email service, handled outside this work), so no email is sent or promised; today the
+page is the only place warnings appear. Support hours remain UNASSIGNED, awaiting the owner's choice.
+
+### RB-ALERT-01
+
+Billing alert active. Follow RB-BILL-01 for the connection shown. "No longer observed" means a successful billing
+check found the condition absent; it is not an incident closure. A connection no longer listed keeps its warning
+with "not observed since"; it is never treated as fixed.
+
+### RB-ALERT-02
+
+App alert active. Follow the application outcomes section above (compare hosting-log `application_outcome` lines
+first). "No longer reported" means the failed hours left the 24-hour window, not confirmed recovery.
+
+### RB-ALERT-03
+
+Scheduled check stale, never run, or a source failing. The checks run inside the database: a stale scheduled check
+may mean the job is not scheduled, paused, or the database/scheduler is down. A failing source leaves its warnings
+unchanged. Trusted operator, read only: `select * from operations.alert_heartbeat;` and, where pg_cron exists,
+`select jobname, active from cron.job where jobname = 'savour-operations-alerts';`. A manual evaluation
+(`select private.evaluate_operations_alerts('manual');`, database owner only) refreshes the state but never counts
+as a scheduled run. Scheduling is `supabase/cron/operations_alerts_schedule.sql`, applied only by the operator after
+the owner's channel decision; removal is `operations_alerts_unschedule.sql` (that job only). Rollback of the
+migration is a new forward migration, never an edit.
