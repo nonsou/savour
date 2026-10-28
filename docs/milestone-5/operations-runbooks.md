@@ -207,11 +207,12 @@ The change is additive and read-only.
 
 ### RB-BACKUP-01
 
-Planned, not done. No restore has been tested and nothing here claims one has.
+Local synthetic logical recovery verified 28 October 2026; managed Supabase recovery remains pending.
 
-1. Target: a restore drill into a disposable project, verifying billing tables and approved report snapshots.
-2. Needs owner authorization for the drill, the target project and any real export. Owner: UNASSIGNED.
-3. Until then, recovery relies on Supabase project backups as configured by the owner.
+1. [Local rehearsal](local-recovery-rehearsal.md) and [machine-readable result](local-recovery-result.json): native PostgreSQL 17.11, 20 real migrations, two synthetic businesses, approved reports and trial billing. Row hashes, sequence state, catalog/RLS/ACLs, tenant denial, immutable reports, corruption rejection and late-error rollback passed. The local server stopped and its artifacts were deleted.
+2. This does not verify managed backups/PITR, real Auth/MFA, Vault encryption, Storage or paid/refund/dispute billing recovery. No hosted database was restored or exported.
+3. Follow the [managed restore checklist](managed-restore-checklist.md) before a separately approved isolated target/export. Do not physically clone the current project: encryption keys are copied and restored cron/net jobs can start immediately. Target cost needs separate approval.
+4. Existing backup configuration and retention must be inspected before making recovery promises. Measured local drill time is not an RTO/RPO or SLA.
 
 ## Support assignment checklist
 

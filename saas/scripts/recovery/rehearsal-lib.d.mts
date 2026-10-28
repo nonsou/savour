@@ -1,0 +1,28 @@
+export const LABEL: string;
+export const REQUIRED_BINARIES: string[];
+export const SUPERUSER: string;
+export const PORT: string;
+export const WORKDIR_PREFIX: string;
+export const DATABASES: Readonly<{ source: string; restore: string; recovered: string; negative: string }>;
+export const NEGATIVE_MARKER: string;
+export function parseArgs(argv: string[]): { pgBin: string; keepArtifacts: boolean };
+export function assertSafePath(p: unknown, what: string): void;
+export function scrubEnv(env: Record<string, string | undefined>): Record<string, string>;
+export function checkVersions(outputs: Record<string, string>): Record<string, string>;
+export function sha256(buf: Buffer | string): string;
+export function archiveFacts(buf: Buffer): { sha256: string; bytes: number };
+export function verifyArchive(buf: Buffer, facts: { sha256: string; bytes: number }): true;
+export function byteFlipped(buf: Buffer): Buffer;
+export function truncated(buf: Buffer): Buffer;
+export const SESSION_PREAMBLE: string;
+export const TABLE_LIST_SQL: string;
+export function tableHashSql(tables: string[]): string;
+export const CATALOG_SECTIONS: Record<string, string>;
+export const CATALOG_SQL: string;
+export const SEQUENCE_SQL: string;
+export function diffManifest(a: unknown, b: unknown, path?: string): string[];
+export function triggersAfterData(list: string): boolean;
+export function sanitizeReport(report: unknown, privatePaths: string[]): string;
+
+export const SEQUENCE_LIST_SQL: string;
+export function sequenceStateSql(names: string[]): string;

@@ -1,0 +1,136 @@
+{
+  "label": "LOCAL_NATIVE_LOGICAL_REHEARSAL_ONLY",
+  "notice": "Local synthetic logical rehearsal only. Not managed backup certification; not hosted, billing-state or PITR recovery evidence.",
+  "status": "PASS",
+  "versions": {
+    "initdb": "17.11",
+    "pg_ctl": "17.11",
+    "postgres": "17.11",
+    "psql": "17.11",
+    "pg_dump": "17.11",
+    "pg_restore": "17.11"
+  },
+  "steps": [
+    {
+      "name": "private cluster started (unix socket only)",
+      "ok": true
+    },
+    {
+      "name": "no TCP listener configured",
+      "ok": true
+    },
+    {
+      "name": "fixture: two businesses, two trial billing rows, approved reports",
+      "ok": true,
+      "fixture": {
+        "workspaces": 2,
+        "workspace_billing": 2,
+        "report_revisions": 2
+      }
+    },
+    {
+      "name": "source unchanged during dump (no other clients)",
+      "ok": true
+    },
+    {
+      "name": "archive TOC readable",
+      "ok": true
+    },
+    {
+      "name": "corrupt copy rejected before restore: byte_flip",
+      "ok": true
+    },
+    {
+      "name": "corrupt copy rejected before restore: truncate",
+      "ok": true
+    },
+    {
+      "name": "rr_restore is fresh and empty",
+      "ok": true
+    },
+    {
+      "name": "rr_restore matches dump-time manifest",
+      "ok": true,
+      "differences": []
+    },
+    {
+      "name": "post-restore probes (tenant denial, immutable report)",
+      "ok": true
+    },
+    {
+      "name": "probes rolled back",
+      "ok": true
+    },
+    {
+      "name": "source mutation visible in manifest",
+      "ok": true,
+      "changed": [
+        "public.workspaces.sha256"
+      ]
+    },
+    {
+      "name": "rr_recovered is fresh and empty",
+      "ok": true
+    },
+    {
+      "name": "rr_recovered matches dump-time manifest",
+      "ok": true,
+      "differences": []
+    },
+    {
+      "name": "TOC places triggers after all table data",
+      "ok": true
+    },
+    {
+      "name": "negative restore fails late with the control error",
+      "ok": true
+    },
+    {
+      "name": "no partial app schema or data survives single-transaction failure",
+      "ok": true,
+      "schemas": "public,rehearsal_negative_control"
+    }
+  ],
+  "measured_drill_ms_not_sla": {
+    "load_source": 327,
+    "pg_dump": 57,
+    "restore": 132,
+    "recover": 196,
+    "total": 2541
+  },
+  "manifest": {
+    "archive": {
+      "sha256": "9ea46d1004f2307f27a374c45cc9ab5171d2d396d155d022de4292ed17f7050f",
+      "bytes": 910559
+    },
+    "tables": 59,
+    "sequences": 4,
+    "catalog_sections": {
+      "schemas": 7,
+      "relations": 64,
+      "views": 1,
+      "columns": 651,
+      "constraints": 391,
+      "indexes": 184,
+      "policies": 23,
+      "triggers": 50,
+      "functions": 335,
+      "types": 7,
+      "default_acls": 0,
+      "event_triggers": 0
+    },
+    "report_revisions": {
+      "rows": 2,
+      "sha256": "afaaf3a1136f6491deb2313532a877f753c6185075c90e4ed47a35f64ec98621"
+    },
+    "workspace_billing": {
+      "rows": 2,
+      "sha256": "1ca291b5937be29640a9982e0853f2da331ae9b49fcbb920ad1aa400d71ad4e2"
+    }
+  },
+  "controls": {
+    "migrations_applied": 20,
+    "server_stopped": true,
+    "artifacts": "deleted"
+  }
+}

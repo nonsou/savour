@@ -28,18 +28,18 @@ Owner authorization, named operator/support hours and secure real-data arrangeme
 
 | Signal | Required check | Current status |
 |---|---|---|
-| Failed saves | Sustained failures detected; operator route tested | Inspection assessment request outcomes implemented; coarse, unverified session counters and private server logs; hosted permission checks and sample export/log-to-counter flow verified; authenticated hosted390x844 layout/navigation verified. Other saves and alert delivery pending |
+| Failed saves | Sustained failures detected; operator route tested | Inspection assessment request outcomes implemented; coarse, unverified session counters and private server logs; hosted permissions and sample export/log-to-counter flow verified. Development owner email and deduplication verified 28 October; other save paths and new email-card mobile checks remain pending |
 | Authentication abuse / tenant denials | Opaque counters and scoped operator visibility | Pending implementation |
-| Queue / export failures | Age and failure counts; no inspection text in logs | Report/analytics PDF and CSV plus dashboard CSV generation instrumented; hosted permission checks and sample export/log-to-counter flow verified; authenticated hosted390x844 layout/navigation verified. Download completion, other queues and alert delivery pending |
-| Billing backlog | Alert assigned operator after 15 minutes; delivery test | Read-only on-page detection verified; internal five-minute check/inbox verified with scheduled artificial warning, deduplication and cleanup; email/support hours pending |
-| Webhook lag / unresolved payments | Reconcile authoritative provider state; no unverified grant | Worker/inbox/discovery/review snapshot and guide verified; internal scheduled alerts verified; email acceptance pending |
-| Restore / rollback | Target restore drill and runbooks reviewed | Archive rehearsal and operator runbooks prepared; target restore drill pending |
+| Queue / export failures | Age and failure counts; no inspection text in logs | Report/analytics PDF and CSV plus dashboard CSV generation instrumented; hosted permissions and sample export/log-to-counter flow verified. Development owner email delivery verified using a synthetic dashboard CSV counter. Download completion, other queues and new email-card mobile checks remain pending |
+| Billing backlog | Alert assigned operator after 15 minutes; delivery test | Read-only on-page detection and internal five-minute check/inbox verified. Development owner email, repeated-run deduplication and fixture cleanup verified 28 October; support hours/escalation availability remain pending |
+| Webhook lag / unresolved payments | Reconcile authoritative provider state; no unverified grant | Worker/inbox/discovery/review snapshot and guide verified; internal scheduled alerts and owner test email delivery verified. This does not close deferred provider lifecycle acceptance |
+| Restore / rollback | Target restore drill and runbooks reviewed | Native PostgreSQL 17.11 synthetic logical recovery verified 28 October (two businesses, approved reports, trial billing); managed target restore, paid billing recovery and cutover remain pending |
 
-A named support owner, hours/timezone and tested billing/outage escalation route remain founder decisions before live subscriptions. No external messages or schedules are created by this preparation.
+A named support owner, hours/timezone and tested billing/outage escalation route remain founder decisions before live subscriptions. Partner outreach is not authorized by this document. Separate internal-check and development owner-email schedules are active; this is not external outage monitoring.
 
 ## Proposed cohort targets from the PRD
 
 5 of 6 approve a real inspection within 14 days; 4 of 6 repeat in their agreed cycle; 3 independent paying businesses with at least one per segment; median report effort reduction 30% against measured baselines; zero tenant exposure, unexplained duplicate charges or lost approved records. These are targets, not measured outcomes.
 
 
-Initial alert recipient: platform owner, confirmed13 October2026. Selected channels: email and admin inbox. Email service selection/account connection and support hours remain pending. See [pilot onboarding checklist](pilot-onboarding-checklist.md); six partner slots remain unassigned and no contact is authorized by these documents.
+Initial alert recipient: platform owner, confirmed 13 October 2026. Selected channels: email and admin inbox. Resend development owner-email delivery is verified and enabled as of 28 October 2026; support hours and escalation availability remain pending. See [pilot onboarding checklist](pilot-onboarding-checklist.md); six partner slots remain unassigned and no contact is authorized by these documents.
