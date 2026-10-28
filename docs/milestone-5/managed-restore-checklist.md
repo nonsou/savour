@@ -2,6 +2,10 @@
 
 Development-only preparation. Nothing here authorizes a real export, a managed restore, a new project, spending or production claims. Approval is required for the target, cost and real-data export. Routine verification within that approved scope does not need repeated approval.
 
+## Current execution status — 29 October 2026
+
+[Hosted inspection](hosted-recovery-verification.md) found eight COMPLETED physical backup records; PITR is off. The owner declined the quoted additional USD10/month test project. No paid target was created and no hosted restore was executed. Resume only when a free isolated target is selected or a paid target is separately approved. Backup inventory is not restore proof.
+
 ## Rejected: physically cloning the current cloud database
 
 Do **not** use Supabase "restore to new project" or any physical clone of the current database for the drill:
