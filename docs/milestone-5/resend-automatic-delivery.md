@@ -1,6 +1,6 @@
 # M5: development-only automatic owner email (summary and configuration steps)
 
-Status: **development setup in progress; automatic sending remains off.** The migration is applied in savour-dev. The restricted login and bounded trigger have been provisioned. Strict TLS with the official Supabase CA and hosted rollback checks passed. The worker is deployed and its HTTP gates verified (401 unauthenticated, 405 wrong method, 200 not_configured with zero claims). The separate automatic Resend key, schedule and actual scheduled delivery test remain pending. The manual verification email was delivered by Resend; that does not verify automatic delivery or complete Milestone 5.
+Status: **development automatic alerts enabled and hosted delivery verified on 28 October 2026.** The owner stored the separate Resend sending key and enabled the owner-admin switch. A real scheduled worker run sent one disposable synthetic warning; Resend accepted it and the owner confirmed receipt. Repeated worker invocations and scheduled runs did not create a second email. Test user/counter cleanup passed; the warning became inactive and the 25 approved report revisions remained unchanged. See [hosted evidence](automatic-alert-hosted-verification.md). This does not complete Milestone 5 or authorize production release.
 
 ## What it does
 
