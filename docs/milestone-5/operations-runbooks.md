@@ -48,10 +48,10 @@ owner-only `private.operations_snapshot()`.
 | --- | --- |
 | Support owner | UNASSIGNED |
 | Billing operator (trusted database access) | UNASSIGNED |
-| Support hours | UNASSIGNED |
+| Support availability | Weekdays (Monday–Friday), 09:00–17:00 Africa/Lagos; owner confirmed 29 October 2026; no response deadline/SLA |
 | Escalation contact | UNASSIGNED |
 
-These stay UNASSIGNED until the owner names them. Until then every action below is "owner decides".
+Unassigned operator roles and escalation contacts remain pending. Recorded availability does not assign those roles or promise a response deadline. Until assignments are made, operator actions remain "owner decides".
 
 ## Alert codes to actions
 
@@ -220,7 +220,7 @@ Local synthetic logical recovery verified 28 October 2026; managed Supabase reco
 
 - [ ] Support owner named (pending)
 - [ ] Billing operator with trusted database access named (pending)
-- [ ] Support hours set (pending)
+- [x] Support availability recorded: weekdays 09:00–17:00 Africa/Lagos (29 October 2026); no SLA
 - [ ] Escalation contact set (pending)
 - [ ] Manual check cadence agreed (pending; detection latency equals this cadence)
 - [ ] External alert delivery decided (pending; not in this slice)
@@ -243,7 +243,7 @@ Migration `20261013114038_m5_operations_alerts.sql` stores bounded current alert
 hours failed). The page links to it from `/platform` and `/platform/operations`. It sends nothing and escalates
 nothing automatically. Recipient: the platform owner, who chose email plus the admin page. Email is requested but
 not connected (pending an email service, handled outside this work), so no email is sent or promised; today the
-page is the only place warnings appear. Support hours remain UNASSIGNED, awaiting the owner's choice.
+page is the only place warnings appear. Support availability is weekdays 09:00–17:00 Africa/Lagos, confirmed 29 October 2026; escalation coverage remains pending.
 
 ### RB-ALERT-01
 

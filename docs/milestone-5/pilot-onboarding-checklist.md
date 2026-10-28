@@ -1,6 +1,6 @@
 # Pilot onboarding checklist (development preparation)
 
-Status: template only, 13 October 2026. No partner has been contacted, recruited or named. This checklist authorizes no outreach; the owner must explicitly authorize contact with a named candidate. Nothing here promises a service level, support hours or response time: support hours are awaiting the owner's choice; email and the admin inbox were selected, and email service setup is pending (see `pilot-preparation.md` and `/platform/alerts`).
+Status: template only; updated 29 October 2026. The owner confirms no first pilot business has been selected; all six slots remain unassigned. This checklist authorizes no outreach. Support availability is weekdays (Monday–Friday), 09:00–17:00 Africa/Lagos, confirmed by the owner. This is availability only, with no response deadline or SLA. Development owner email delivery was verified 28 October; see `pilot-preparation.md` and `/platform/alerts`. No email configuration or schedule changes follow from this availability decision.
 
 The flow reuses what already ships: the workspace **Get started** checklist, the three starter packs, the subject CSV preview/import and **SAMPLE** practice inspections. No new feature is needed for any step below.
 
@@ -57,4 +57,4 @@ Copy this list per slot. Record a date and the evidence location for each step; 
 ## Not covered here
 
 - Real data migration, restore drills and paid/live billing activation: separate gates in `pilot-preparation.md`.
-- Any support promise. Scheduled internal checks can generate warnings after the development job is activated. The owner reads them in the admin inbox; email delivery and support hours remain pending. No response-time commitment follows from a running detector.
+- Any response-time or service-level promise. Development warnings reach the owner through the admin inbox and verified email delivery. Recorded weekday availability does not establish response deadlines, after-hours coverage or a changed sending schedule.
